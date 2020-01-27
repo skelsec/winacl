@@ -312,7 +312,7 @@ def accessmask_to_sddl(mask, sd_object_type):
 
 class ACE:
 	def __init__(self):
-		self.sd_object_type = None #the object's type which the security descriptor belongs to
+		pass
 
 	@staticmethod
 	def from_bytes(data, sd_object_type = None):
@@ -346,7 +346,9 @@ class ACE:
 #ACCESS_ALLOWED_ACE	
 class ACCESS_ALLOWED_ACE(ACE):
 	def __init__(self):
-		self.Header = None
+		self.AceType = ACEType.ACCESS_ALLOWED_ACE_TYPE
+		self.AceFlags = None
+		self.AceSize = 0
 		self.Mask = None
 		self.Sid = None
 		self.sd_object_type = None
@@ -355,21 +357,29 @@ class ACCESS_ALLOWED_ACE(ACE):
 	def from_buffer(buff, sd_object_type = None):
 		ace = ACCESS_ALLOWED_ACE()
 		ace.sd_object_type = SE_OBJECT_TYPE(sd_object_type) if sd_object_type else None
-		ace.Header = ACEHeader.from_buffer(buff)
+		ace.AceType = ACEType(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceFlags = AceFlags(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceSize = int.from_bytes(buff.read(2), 'little', signed = False)
 		ace.Mask = int.from_bytes(buff.read(4), 'little', signed = False)
 		ace.Sid = SID.from_buffer(buff)
 		return ace
 
 	def to_buffer(self, buff):
-		self.Header.to_buffer(buff)
-		buff.write(self.Mask.to_bytes(4,'little', signed = False))
-		buff.write(self.Sid.to_bytes())
+		t = self.Mask.to_bytes(4,'little', signed = False)
+		t += self.Sid.to_bytes()
+		if (4 + len(t)) % 4 != 0:
+			t += b'\x00' * ((4 + len(t)) % 4)
+		self.AceSize = 4 + len(t)
+		buff.write(self.AceType.value.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceFlags.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceSize.to_bytes(2, 'little', signed = False))
+		buff.write(t)
 
-	def to_ssdl(self):
+	def to_ssdl(self, sd_object_type = None):
 		#ace_type;ace_flags;rights;object_guid;inherit_object_guid;account_sid;(resource_attribute)
 		return '(%s;%s;%s;%s;%s;%s)' % ( 
-			SSDL_ACE_TYPE_MAPS_INV[self.Header.AceType], 
-			aceflags_to_ssdl(self.Header.AceFlags), 
+			SSDL_ACE_TYPE_MAPS_INV[self.AceType], 
+			aceflags_to_ssdl(self.AceFlags), 
 			accessmask_to_sddl(self.Mask, self.sd_object_type),
 			'',
 			'', 
@@ -378,13 +388,16 @@ class ACCESS_ALLOWED_ACE(ACE):
 
 	def __str__(self):
 		t = 'ACCESS_ALLOWED_ACE\r\n'
+		t += 'Flags: %s\r\n' % str(self.AceFlags)
 		t += 'Sid: %s\r\n' % self.Sid
 		t += 'Mask: %s\r\n' % mask_to_str(self.Mask, self.sd_object_type)		
 		return t
 		
 class ACCESS_DENIED_ACE(ACE):
 	def __init__(self):
-		self.Header = None
+		self.AceType = None
+		self.AceFlags = None
+		self.AceSize = None
 		self.Mask = None
 		self.Sid = None
 
@@ -404,7 +417,7 @@ class ACCESS_DENIED_ACE(ACE):
 		buff.write(ADS_ACCESS_MASK.to_bytes(4,'little', signed = False))
 		buff.write(ace.Sid.to_bytes())
 	
-	def to_ssdl(self):
+	def to_ssdl(self, sd_object_type = None):
 		#ace_type;ace_flags;rights;object_guid;inherit_object_guid;account_sid;(resource_attribute)
 		return '(%s;%s;%s;%s;%s;%s)' % ( 
 			SSDL_ACE_TYPE_MAPS_INV[self.Header.AceType], 
@@ -417,7 +430,9 @@ class ACCESS_DENIED_ACE(ACE):
 		
 class SYSTEM_AUDIT_ACE(ACE):
 	def __init__(self):
-		self.Header = None
+		self.AceType = None
+		self.AceFlags = None
+		self.AceSize = None
 		self.Mask = None
 		self.Sid = None
 
@@ -437,7 +452,7 @@ class SYSTEM_AUDIT_ACE(ACE):
 		buff.write(ADS_ACCESS_MASK.to_bytes(4,'little', signed = False))
 		buff.write(ace.Sid.to_bytes())
 
-	def to_ssdl(self):
+	def to_ssdl(self, sd_object_type = None):
 		#ace_type;ace_flags;rights;object_guid;inherit_object_guid;account_sid;(resource_attribute)
 		return '(%s;%s;%s;%s;%s;%s)' % ( 
 			SSDL_ACE_TYPE_MAPS_INV[self.Header.AceType], 
@@ -450,7 +465,9 @@ class SYSTEM_AUDIT_ACE(ACE):
 		
 class SYSTEM_ALARM_ACE(ACE):
 	def __init__(self):
-		self.Header = None
+		self.AceType = None
+		self.AceFlags = None
+		self.AceSize = None
 		self.Mask = None
 		self.Sid = None
 
@@ -470,7 +487,7 @@ class SYSTEM_ALARM_ACE(ACE):
 		buff.write(ADS_ACCESS_MASK.to_bytes(4,'little', signed = False))
 		buff.write(ace.Sid.to_bytes())
 
-	def to_ssdl(self):
+	def to_ssdl(self, sd_object_type = None):
 		#ace_type;ace_flags;rights;object_guid;inherit_object_guid;account_sid;(resource_attribute)
 		return '(%s;%s;%s;%s;%s;%s)' % ( 
 			SSDL_ACE_TYPE_MAPS_INV[self.Header.AceType], 
@@ -489,7 +506,9 @@ class ACCESS_ALLOWED_OBJECT_Flags(enum.IntFlag):
 
 class ACCESS_ALLOWED_OBJECT_ACE:
 	def __init__(self):
-		self.Header = None
+		self.AceType = None
+		self.AceFlags = None
+		self.AceSize = None
 		self.Mask = None
 		self.Flags = None
 		self.ObjectType = None
@@ -522,7 +541,7 @@ class ACCESS_ALLOWED_OBJECT_ACE:
 			buff.write(self.InheritedObjectType.to_bytes())
 		buff.write(self.Sid.to_bytes())
 
-	def to_ssdl(self):
+	def to_ssdl(self, sd_object_type = None):
 		#ace_type;ace_flags;rights;object_guid;inherit_object_guid;account_sid;(resource_attribute)
 		return '(%s;%s;%s;%s;%s;%s)' % ( 
 			SSDL_ACE_TYPE_MAPS_INV[self.Header.AceType], 
@@ -544,7 +563,9 @@ class ACCESS_ALLOWED_OBJECT_ACE:
 		
 class ACCESS_DENIED_OBJECT_ACE:
 	def __init__(self):
-		self.Header = None
+		self.AceType = None
+		self.AceFlags = None
+		self.AceSize = None
 		self.Mask = None
 		self.Flags = None
 		self.ObjectType = None
@@ -577,7 +598,7 @@ class ACCESS_DENIED_OBJECT_ACE:
 			buff.write(self.InheritedObjectType.to_bytes())
 		buff.write(self.Sid.to_bytes())
 
-	def to_ssdl(self):
+	def to_ssdl(self, sd_object_type = None):
 		#ace_type;ace_flags;rights;object_guid;inherit_object_guid;account_sid;(resource_attribute)
 		return '(%s;%s;%s;%s;%s;%s)' % ( 
 			SSDL_ACE_TYPE_MAPS_INV[self.Header.AceType], 
@@ -599,7 +620,9 @@ class ACCESS_DENIED_OBJECT_ACE:
 		
 class SYSTEM_AUDIT_OBJECT_ACE:
 	def __init__(self):
-		self.Header = None
+		self.AceType = None
+		self.AceFlags = None
+		self.AceSize = None
 		self.Mask = None
 		self.Flags = None
 		self.ObjectType = None
@@ -635,7 +658,7 @@ class SYSTEM_AUDIT_OBJECT_ACE:
 	#		buff.write(self.InheritedObjectType.to_bytes())
 	#	buff.write(self.Sid.to_bytes())
 	#
-	#def to_ssdl(self):
+	#def to_ssdl(self, sd_object_type = None):
 	#	#ace_type;ace_flags;rights;object_guid;inherit_object_guid;account_sid;(resource_attribute)
 	#	return '(%s;%s;%s;%s;%s;%s)' % ( 
 	#		SSDL_ACE_TYPE_MAPS_INV[self.Header.AceType], 
@@ -657,7 +680,9 @@ class SYSTEM_AUDIT_OBJECT_ACE:
 		
 class ACCESS_ALLOWED_CALLBACK_ACE:
 	def __init__(self):
-		self.Header = None
+		self.AceType = None
+		self.AceFlags = None
+		self.AceSize = None
 		self.Mask = None
 		self.Sid = None
 		self.ApplicationData = None
@@ -684,7 +709,9 @@ class ACCESS_ALLOWED_CALLBACK_ACE:
 		
 class ACCESS_DENIED_CALLBACK_ACE:
 	def __init__(self):
-		self.Header = None
+		self.AceType = None
+		self.AceFlags = None
+		self.AceSize = None
 		self.Mask = None
 		self.Sid = None
 		self.ApplicationData = None
@@ -711,7 +738,9 @@ class ACCESS_DENIED_CALLBACK_ACE:
 		
 class ACCESS_ALLOWED_CALLBACK_OBJECT_ACE:
 	def __init__(self):
-		self.Header = None
+		self.AceType = None
+		self.AceFlags = None
+		self.AceSize = None
 		self.Mask = None
 		self.Flags = None
 		self.ObjectType = None
@@ -746,7 +775,9 @@ class ACCESS_ALLOWED_CALLBACK_OBJECT_ACE:
 		
 class ACCESS_DENIED_CALLBACK_OBJECT_ACE:
 	def __init__(self):
-		self.Header = None
+		self.AceType = None
+		self.AceFlags = None
+		self.AceSize = None
 		self.Mask = None
 		self.Flags = None
 		self.ObjectType = None
@@ -781,7 +812,9 @@ class ACCESS_DENIED_CALLBACK_OBJECT_ACE:
 		
 class SYSTEM_AUDIT_CALLBACK_ACE:
 	def __init__(self):
-		self.Header = None
+		self.AceType = None
+		self.AceFlags = None
+		self.AceSize = None
 		self.Mask = None
 		self.Sid = None
 		self.ApplicationData = None
@@ -809,7 +842,9 @@ class SYSTEM_AUDIT_CALLBACK_ACE:
 		
 class SYSTEM_AUDIT_CALLBACK_OBJECT_ACE:
 	def __init__(self):
-		self.Header = None
+		self.AceType = None
+		self.AceFlags = None
+		self.AceSize = None
 		self.Mask = None
 		self.Flags = None
 		self.ObjectType = None
@@ -844,7 +879,9 @@ class SYSTEM_AUDIT_CALLBACK_OBJECT_ACE:
 		
 class SYSTEM_MANDATORY_LABEL_ACE:
 	def __init__(self):
-		self.Header = None
+		self.AceType = None
+		self.AceFlags = None
+		self.AceSize = None
 		self.Mask = None
 		self.Sid = None
 
@@ -861,7 +898,9 @@ class SYSTEM_MANDATORY_LABEL_ACE:
 		
 class SYSTEM_RESOURCE_ATTRIBUTE_ACE:
 	def __init__(self):
-		self.Header = None
+		self.AceType = None
+		self.AceFlags = None
+		self.AceSize = None
 		self.Mask = None
 		self.Sid = None
 		self.AttributeData = None
@@ -889,7 +928,9 @@ class SYSTEM_RESOURCE_ATTRIBUTE_ACE:
 		
 class SYSTEM_SCOPED_POLICY_ID_ACE:
 	def __init__(self):
-		self.Header = None
+		self.AceType = None
+		self.AceFlags = None
+		self.AceSize = None
 		self.Mask = None
 		self.Sid = None
 

@@ -4,10 +4,14 @@ from winacl.functions.advapi32 import LookupAccountNameW, LookupAccountSidW, \
 	GetSecurityInfo, OWNER_SECURITY_INFORMATION, GROUP_SECURITY_INFORMATION, \
 	DACL_SECURITY_INFORMATION, OpenSCManagerW, SC_MANAGER_ENUMERATE_SERVICE, \
 	EnumServicesStatusW, OpenServiceW, QueryServiceObjectSecurity, CloseServiceHandle, \
-	hive_name_map, RegOpenKeyExW, RegCloseKey
+	hive_name_map, RegOpenKeyExW, RegCloseKey, RegEnumKeyExW, RegEnumValueW, \
+	SetSecurityInfo, BuildTrusteeWithSidW, GetEffectiveRightsFromAclW, \
+	ConvertSidToStringSidW, ConvertStringSidToSidW
 import glob
 import os
 from winacl.dtyp.security_descriptor import SECURITY_DESCRIPTOR
+from winacl.dtyp.ace import ACCESS_ALLOWED_ACE, AceFlags, FILE_ACCESS_MASK
+from winacl.dtyp.sid import SID
 
 def get_sid_for_user(username):
 	sid, domain, use = LookupAccountNameW(None, username)
@@ -21,6 +25,12 @@ def get_user_for_sid(sid_str):
 def get_reg_sd(key_handle):
 	sd, pdacl = GetSecurityInfo(key_handle, SE_OBJECT_TYPE.SE_REGISTRY_KEY.value, OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION)
 	return sd, pdacl
+
+def set_file_sd(file_path, sd):
+	req_rights = 0x10000000	#GENERIC_ALL
+	file_handle = CreateFileW(file_path, dwDesiredAccess = req_rights, dwCreationDisposition = OPEN_EXISTING)
+	SetSecurityInfo(file_handle, SE_OBJECT_TYPE.SE_FILE_OBJECT.value, sd)
+	CloseHandle(file_handle)
 
 def get_file_sd(file_path):
 	file_handle = CreateFileW(file_path, dwDesiredAccess = READ_CONTROL, dwCreationDisposition = OPEN_EXISTING)
@@ -102,12 +112,69 @@ def get_registry_key_sd(reg_path):
 	
 	return sd
 
-def enumerate_registry_sd(start_pos):
+def enumerate_registry_sd(reg_path, reg_handle = None):
 	# TODO: do this
-	pass
+	if reg_path[-1] == '\\':
+		reg_path = reg_path[:-1]
+	handles = []
+	if reg_handle is None:
+		path_elements = reg_path.split('\\')
+		reg_handle = hive_name_map[path_elements[0]]
+		handles = []
+		for name in path_elements[1:]:
+			reg_handle = RegOpenKeyExW(reg_handle, name)
+			handles.append(reg_handle)
+
+	subkeys = RegEnumKeyExW(reg_handle)
+	#print(subkeys)
+	for sk in subkeys:
+		reg_path_sk = '%s\\%s' % (reg_path, sk)
+		#print(reg_path_sk)
+		try:
+			reg_handle_sk = RegOpenKeyExW(reg_handle, sk)
+		except Exception as e:
+			if str(e).find('cannot find') != -1:
+				print(str(e) + reg_path_sk)
+			else:
+				print(e)
+			
+		else:
+			sd = GetSecurityInfo(reg_handle, SE_OBJECT_TYPE.SE_REGISTRY_KEY.value, OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION)
+			yield (reg_path_sk, sd)
+			yield from enumerate_registry_sd(reg_path_sk, reg_handle_sk)
+
+	for reg_handle in handles:
+		RegCloseKey(reg_handle)
+
+
+	#values = RegEnumValueW(reg_handle)
+	#print(values)
+	#for value_name in values:
+	#	print(value_name)
+	#	vhandle = RegOpenKeyExW(reg_handle, value_name)
+	#	sd = GetSecurityInfo(vhandle, SE_OBJECT_TYPE.SE_REGISTRY_KEY.value, OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION)
+	#	print(sd)
+	#	input()
+	#
+	#	
+	#print('%s\\%s' % (reg_path, name))
 
 if __name__ == '__main__':
-	
+	path = 'C:\\Users\\victim\\Desktop\\course_winsec_1\\test.txt'
+	sd = get_file_sd(path)
+	#print(str(sd))
+	sid = SID.from_string('S-1-5-21-3448413973-1765323015-1500960949-1105')
+	#a = ConvertSidToStringSidW(sid)
+	#print(a)
+	#ConvertStringSidToSidW(a + '\x00')
+
+	eff = GetEffectiveRightsFromAclW(sd.Dacl, sid)
+	print(FILE_ACCESS_MASK(eff))
+
+	#regkey = 'HKLM\\SYSTEM\\'
+	#for key_name, sd in enumerate_registry_sd(regkey):
+	#	print(key_name + sd.to_ssdl())
+
 	#regkey = 'HKLM\\SYSTEM\\ControlSet001\\Enum\\HTREE\\ROOT\\0'
 	#print(get_registry_key_sd(regkey))
 	

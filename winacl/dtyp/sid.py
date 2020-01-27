@@ -71,13 +71,11 @@ class SID:
 		return sid
 		
 	def to_bytes(self):
-		t = self.Revision.to_bytes(1, 'little')
-		t += len(self.SubAuthority).to_bytes(1, 'little')
-		t += self.IdentifierAuthority.to_bytes(6, 'big')
+		t = self.Revision.to_bytes(1, 'little', signed = False)
+		t += len(self.SubAuthority).to_bytes(1, 'little', signed = False)
+		t += self.IdentifierAuthority.to_bytes(6, 'big', signed = False)
 		for i in self.SubAuthority:
 			t += i.to_bytes(4, 'little', signed = False)
-		#for i in self.SubAuthority:
-		#	t += i.to_bytes((i.bit_length() + 7) // 8, 'little')
 		return t
 		
 	def __str__(self):

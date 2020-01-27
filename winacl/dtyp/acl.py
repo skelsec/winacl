@@ -36,6 +36,7 @@ class ACL:
 		self.AceCount = len(self.aces)
 		for ace in self.aces:
 			data_buff.write(ace.to_bytes())
+
 		self.AclSize = 8 + data_buff.tell()
 
 		buff.write(self.AclRevision.to_bytes(1, 'little', signed = False))
@@ -52,8 +53,8 @@ class ACL:
 			t += '%s\r\n' % str(ace)
 		return t
 
-	def to_ssdl(self):
+	def to_ssdl(self, object_type = None):
 		t = ''
 		for ace in self.aces:
-			t += ace.to_ssdl()
+			t += ace.to_ssdl(object_type)
 		return t

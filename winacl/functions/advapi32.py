@@ -1,6 +1,6 @@
 import enum
 from winacl.functions.defines import *
-from winacl.functions.kernel32 import GetLastError, LocalFree
+from winacl.functions.kernel32 import GetLastError, LocalFree, READ_CONTROL
 from winacl.functions.membuff import MemoryBuffer
 from winacl.dtyp.security_descriptor import SECURITY_DESCRIPTOR
 from winacl.dtyp.sid import SID
@@ -26,8 +26,6 @@ SCOPE_SECURITY_INFORMATION = 0x00000040 #A SYSTEM_SCOPED_POLICY_ID_ACE (section 
 PROCESS_TRUST_LABEL_SECURITY_INFORMATION = 0x00000080 #Reserved.
 BACKUP_SECURITY_INFORMATION = 0x00010000 #The security descriptor is being accessed for use in a backup operation.
 
-
-READ_CONTROL                     = 0x00020000
 
 # EnumServicesStatusEx() service type filters (in addition to actual types)
 SERVICE_DRIVER = 0x0000000B # SERVICE_KERNEL_DRIVER and SERVICE_FILE_SYSTEM_DRIVER
@@ -62,6 +60,65 @@ SC_MANAGER_MODIFY_BOOT_CONFIG   = 0x0020
 
 
 
+# https://docs.microsoft.com/en-us/windows/win32/api/aclapi/nf-aclapi-setsecurityinfo
+
+#DWORD SetSecurityInfo(
+#  HANDLE               handle,
+#  SE_OBJECT_TYPE       ObjectType,
+#  SECURITY_INFORMATION SecurityInfo,
+#  PSID                 psidOwner,
+#  PSID                 psidGroup,
+#  PACL                 pDacl,
+#  PACL                 pSacl
+#);
+
+
+def SetSecurityInfo(handle_obj, obj_type, sd):
+	#Warning  If the supplied handle was opened with an ACCESS_MASK value of MAXIMUM_ALLOWED, then the SetSecurityInfo function will not propagate ACEs to children.
+
+	_SetSecurityInfo = windll.advapi32.SetSecurityInfo
+	_SetSecurityInfo.argtypes = [HANDLE, DWORD, DWORD, PVOID, PVOID, PVOID, PVOID]
+	_SetSecurityInfo.restype  = DWORD
+	_SetSecurityInfo.errcheck = RaiseIfNotErrorSuccess
+
+	sec_info = 0
+	pOwner = None
+	if sd.Owner is not None:
+		sec_info |= OWNER_SECURITY_INFORMATION
+		owner_data = sd.Owner.to_bytes()
+		pOwner = ctypes.create_string_buffer(owner_data, len(owner_data))
+	
+	pGroup = None
+	#if sd.Group is not None:
+	#	sec_info |= GROUP_SECURITY_INFORMATION
+	#	group_data = sd.Group.to_bytes()
+	#	pGroup = ctypes.create_string_buffer(group_data, len(group_data))
+	
+	pDacl = None
+	if sd.Dacl is not None:
+		sec_info |= DACL_SECURITY_INFORMATION
+		dacl_data = sd.Dacl.to_bytes()
+		pDacl = ctypes.create_string_buffer(dacl_data, len(dacl_data))
+	
+	pSacl = None
+	#if sd.Sacl is not None:
+	#	sec_info |= SACL_SECURITY_INFORMATION
+	#	sacl_data = sd.Sacl.to_bytes()
+	#	pSacl = ctypes.create_string_buffer(sacl_data, len(sacl_data))
+
+	if sec_info == 0:
+		raise Exception('Looks like nothing is to be set! Check your sd object!')
+
+	#print(sec_info)
+	ret = _SetSecurityInfo(
+		handle_obj, 
+		obj_type, 
+		sec_info, 
+		pOwner, 
+		pGroup, 
+		pDacl, 
+		pSacl
+	)
 
 
 
@@ -97,6 +154,117 @@ def GetSecurityInfo(handle_obj, obj_type, info_req):
 	sd = SECURITY_DESCRIPTOR.from_buffer(buff, obj_type)
 	LocalFree(ppSecurityDescriptor)
 	return sd
+
+
+# https://docs.microsoft.com/en-us/windows/win32/api/accctrl/ns-accctrl-trustee_w
+class TRUSTEE_W(Structure):
+	_fields_ = [
+		("pMultipleTrustee", PVOID),
+		("MultipleTrusteeOperation", DWORD),
+		("TrusteeForm", DWORD),
+		("TrusteeType", DWORD),
+		("ptstrName", HANDLE),
+	]
+PTRUSTEE_W = ctypes.POINTER(TRUSTEE_W)
+
+
+# https://docs.microsoft.com/en-us/windows/win32/api/aclapi/nf-aclapi-buildtrusteewithsidw
+#void BuildTrusteeWithSidW(
+#  PTRUSTEE_W pTrustee,
+#  PSID       pSid
+#);
+
+def BuildTrusteeWithSidW(sid):
+	_BuildTrusteeWithSidW = windll.advapi32.BuildTrusteeWithSidW
+	_BuildTrusteeWithSidW.argtypes = [PTRUSTEE_W, PVOID] #[HANDLE, SE_OBJECT_TYPE, DWORD, PSID, PSID, PACL, PACL, PSECURITY_DESCRIPTOR]
+	_BuildTrusteeWithSidW.restype  = None
+
+	sid_data = sid.to_bytes()
+	csid = ctypes.create_string_buffer(sid_data, len(sid_data))
+
+	trustee = TRUSTEE_W()
+
+	_BuildTrusteeWithSidW(trustee, csid)
+	return trustee
+
+# https://docs.microsoft.com/en-us/windows/win32/api/sddl/nf-sddl-convertsidtostringsidw
+
+#BOOL ConvertSidToStringSidW(
+#  PSID   Sid,
+#  LPWSTR *StringSid
+#);
+
+def ConvertSidToStringSidW(sid):
+	_ConvertSidToStringSidW = windll.advapi32.ConvertSidToStringSidW
+	_ConvertSidToStringSidW.argtypes = [PVOID, PVOID] #[HANDLE, SE_OBJECT_TYPE, DWORD, PSID, PSID, PACL, PACL, PSECURITY_DESCRIPTOR]
+	_ConvertSidToStringSidW.restype  = DWORD
+	_ConvertSidToStringSidW.errcheck = RaiseIfZero
+
+	sid_data = sid.to_bytes()
+	csid = ctypes.create_string_buffer(sid_data, len(sid_data))
+	pstr = ctypes.create_unicode_buffer(1) #size is irrelevant here
+
+	cstr_sid = ctypes.pointer(pstr)
+	
+	_ConvertSidToStringSidW(byref(csid), byref(cstr_sid))
+	str_sid = ctypes.wstring_at(cstr_sid)
+	LocalFree(cstr_sid)
+
+	return str_sid
+
+# https://docs.microsoft.com/en-us/windows/win32/api/sddl/nf-sddl-convertstringsidtosidw
+
+#BOOL ConvertStringSidToSidW(
+#  LPCWSTR StringSid,
+#  PSID   *Sid
+#);
+def ConvertStringSidToSidW(sid_str):
+	_ConvertStringSidToSidW = windll.advapi32.ConvertStringSidToSidW
+	_ConvertStringSidToSidW.argtypes = [PVOID, PVOID] #[HANDLE, SE_OBJECT_TYPE, DWORD, PSID, PSID, PACL, PACL, PSECURITY_DESCRIPTOR]
+	_ConvertStringSidToSidW.restype  = DWORD
+	_ConvertStringSidToSidW.errcheck = RaiseIfZero
+
+	
+
+	cstr_sid = ctypes.create_string_buffer(sid_str.encode('utf-16-le'))
+	ppSecurityDescriptor = ctypes.pointer(ctypes.c_uint(0))
+	
+	_ConvertStringSidToSidW(cstr_sid, byref(ppSecurityDescriptor))
+	buff = MemoryBuffer(ctypes.addressof(ppSecurityDescriptor.contents))
+	sd = SID.from_buffer(buff)
+	LocalFree(ppSecurityDescriptor)
+	return sd
+
+# https://docs.microsoft.com/en-us/windows/win32/api/aclapi/nf-aclapi-geteffectiverightsfromaclw
+#DWORD GetEffectiveRightsFromAclW(
+#  PACL         pacl,
+#  PTRUSTEE_W   pTrustee,
+#  PACCESS_MASK pAccessRights
+#);
+
+def GetEffectiveRightsFromAclW(acl, sid):
+	"""
+	Takes a SID instead of a trustee!
+	"""
+	_GetEffectiveRightsFromAclW = windll.advapi32.GetEffectiveRightsFromAclW
+	_GetEffectiveRightsFromAclW.argtypes = [PVOID, PTRUSTEE_W, PDWORD] #[HANDLE, SE_OBJECT_TYPE, DWORD, PSID, PSID, PACL, PACL, PSECURITY_DESCRIPTOR]
+	_GetEffectiveRightsFromAclW.restype  = RaiseIfNotErrorSuccess
+
+	sid_data = sid.to_bytes()
+	psid = ctypes.create_string_buffer(sid_data, len(sid_data))
+	trustee = TRUSTEE_W()
+	trustee.pMultipleTrustee = 0
+	trustee.MultipleTrusteeOperation = 0
+	trustee.TrusteeForm = 0
+	trustee.TrusteeType = 0
+	trustee.ptstrName = ctypes.c_void_p(ctypes.addressof(psid))
+
+	effective_rigths_mask = DWORD(0)
+	acl_data = acl.to_bytes()
+	pacl = ctypes.create_string_buffer(acl_data, len(acl_data))
+
+	res = _GetEffectiveRightsFromAclW(pacl, trustee, byref(effective_rigths_mask))
+	return effective_rigths_mask.value
 
 def LookupAccountSidW(lpSystemName, sid_data):
 	_LookupAccountSidW = windll.advapi32.LookupAccountSidW
@@ -355,3 +523,81 @@ def RegCloseKey(hHandle):
     _RegCloseKey.restype  = bool
     _RegCloseKey.errcheck = RaiseIfNotErrorSuccess
     _RegCloseKey(hHandle)
+
+
+# https://docs.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-regenumkeyexw
+# LSTATUS RegEnumKeyExW(
+#  HKEY      hKey,
+#  DWORD     dwIndex,
+#  LPWSTR    lpName,
+#  LPDWORD   lpcchName,
+#  LPDWORD   lpReserved,
+#  LPWSTR    lpClass,
+#  LPDWORD   lpcchClass,
+#  PFILETIME lpftLastWriteTime
+#);
+
+def RegEnumKeyExW(hKey):
+	_RegEnumKeyExW = windll.advapi32.RegEnumKeyExW
+	_RegEnumKeyExW.argtypes = [HANDLE, DWORD, PVOID, LPDWORD, LPDWORD, LPWSTR, LPDWORD, PVOID]
+	_RegEnumKeyExW.restype  = DWORD
+
+	i = 0
+	subkeys = []
+	res = ERROR_SUCCESS
+	
+	while res == ERROR_SUCCESS:
+		dwIndex = DWORD(i)
+		lpName = ctypes.create_unicode_buffer(255 * 2)
+		lpcchName = DWORD(255)
+
+		res = _RegEnumKeyExW(hKey, dwIndex, byref(lpName), byref(lpcchName), NULL, NULL, NULL, NULL)
+		if res == ERROR_SUCCESS:
+			skname = lpName.value
+			subkeys.append(skname)
+			i += 1
+		elif res == ERROR_NO_MORE_ITEMS:
+			break
+		else:
+			raise ctypes.WinError()
+
+	return subkeys
+
+
+# https://docs.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-regenumvaluew
+# LSTATUS RegEnumValueW(
+#  HKEY    hKey,
+#  DWORD   dwIndex,
+#  LPWSTR  lpValueName,
+#  LPDWORD lpcchValueName,
+#  LPDWORD lpReserved,
+#  LPDWORD lpType,
+#  LPBYTE  lpData,
+#  LPDWORD lpcbData
+#);
+
+def RegEnumValueW(hKey):
+	_RegEnumValueW = windll.advapi32.RegEnumValueW
+	_RegEnumValueW.argtypes = [HANDLE, DWORD, PVOID, LPDWORD, PVOID, PVOID, PVOID, PVOID]
+	_RegEnumValueW.restype  = DWORD
+
+	i = 0
+	subkeys = []
+	res = ERROR_SUCCESS
+	
+	while res == ERROR_SUCCESS:
+		dwIndex = DWORD(i)
+		lpName = ctypes.create_unicode_buffer(255 * 2)
+		lpcchName = DWORD(255)
+
+		res = _RegEnumValueW(hKey, dwIndex, byref(lpName), byref(lpcchName), NULL, NULL, NULL, NULL)
+		if res == ERROR_SUCCESS:
+			skname = lpName.value
+			subkeys.append(skname)
+			i += 1
+		elif res == ERROR_NO_MORE_ITEMS:
+			break
+		else:
+			raise ctypes.WinError()
+
+	return subkeys
