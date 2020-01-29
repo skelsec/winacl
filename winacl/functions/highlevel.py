@@ -6,12 +6,15 @@ from winacl.functions.advapi32 import LookupAccountNameW, LookupAccountSidW, \
 	EnumServicesStatusW, OpenServiceW, QueryServiceObjectSecurity, CloseServiceHandle, \
 	hive_name_map, RegOpenKeyExW, RegCloseKey, RegEnumKeyExW, RegEnumValueW, \
 	SetSecurityInfo, BuildTrusteeWithSidW, GetEffectiveRightsFromAclW, \
-	ConvertSidToStringSidW, ConvertStringSidToSidW
+	ConvertSidToStringSidW, ConvertStringSidToSidW, \
+	ConvertSecurityDescriptorToStringSecurityDescriptorW
+import win32net
 import glob
 import os
 from winacl.dtyp.security_descriptor import SECURITY_DESCRIPTOR
 from winacl.dtyp.ace import ACCESS_ALLOWED_ACE, AceFlags, FILE_ACCESS_MASK
 from winacl.dtyp.sid import SID
+from winacl.functions.rights_calc import EvaluateSidAgainstDescriptor
 
 def get_sid_for_user(username):
 	sid, domain, use = LookupAccountNameW(None, username)
@@ -23,8 +26,8 @@ def get_user_for_sid(sid_str):
 	return '%s\\%s' % (domain, username)
 
 def get_reg_sd(key_handle):
-	sd, pdacl = GetSecurityInfo(key_handle, SE_OBJECT_TYPE.SE_REGISTRY_KEY.value, OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION)
-	return sd, pdacl
+	sd = GetSecurityInfo(key_handle, SE_OBJECT_TYPE.SE_REGISTRY_KEY.value, OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION)
+	return sd
 
 def set_file_sd(file_path, sd):
 	req_rights = 0x10000000	#GENERIC_ALL
@@ -61,14 +64,14 @@ def get_dir_file_recursive(dir_path, with_files = False):
 
 def get_servicemanager_sd():
 	scm_handle = OpenSCManagerW(dwDesiredAccess = READ_CONTROL )
-	sd = QueryServiceObjectSecurity(scm_handle, dwSecurityInformation = OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION, with_sd = False)
+	sd = QueryServiceObjectSecurity(scm_handle, dwSecurityInformation = OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION, sd_object_type = SE_OBJECT_TYPE.SE_SERVICE)
 	CloseServiceHandle(scm_handle)
 	return sd
 
 def get_service_sd(service_name):
 	scm_handle = OpenSCManagerW(dwDesiredAccess = READ_CONTROL | SC_MANAGER_ENUMERATE_SERVICE )
 	service_handle = OpenServiceW(scm_handle, service_name, dwDesiredAccess = READ_CONTROL)
-	sd = QueryServiceObjectSecurity(service_handle, dwSecurityInformation = OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION, with_sd = False)
+	sd = QueryServiceObjectSecurity(service_handle, dwSecurityInformation = OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION, sd_object_type = SE_OBJECT_TYPE.SE_SERVICE)
 	CloseServiceHandle(scm_handle)
 	CloseServiceHandle(service_handle)
 	return sd
@@ -78,7 +81,7 @@ def enumerate_all_service_sd():
 	for service_name in EnumServicesStatusW(scm_handle):
 		try:
 			service_handle = OpenServiceW(scm_handle, service_name, dwDesiredAccess = READ_CONTROL)
-			sd = QueryServiceObjectSecurity(service_handle, dwSecurityInformation = OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION, with_sd = False)
+			sd = QueryServiceObjectSecurity(service_handle, dwSecurityInformation = OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION, sd_object_type = SE_OBJECT_TYPE.SE_SERVICE)
 			yield service_name, sd
 		except Exception as e:
 			yield service_name, 'err'
@@ -112,6 +115,28 @@ def get_registry_key_sd(reg_path):
 	
 	return sd
 
+#def get_maximum_permissions_for_sid(sd, sid):
+#	EvaluateSidAgainstDescriptor
+
+def get_maximum_permissions_for_user(sd, username):
+	sid_groups = []
+	domain = None
+	if username.find('\\') != -1:
+		domain, username = username.split('\\')
+
+	user_sid, *t = LookupAccountNameW(domain, username)
+	#print(str(user_sid))
+	sid_groups.append(user_sid)
+	for group_name in win32net.NetUserGetLocalGroups(domain, username):
+		#print(group_name)
+		sid, groupname, use = LookupAccountNameW(domain, group_name)
+		#print(str(sid))
+		sid_groups.append(sid)
+	#print(win32net.NetUserGetLocalGroups('TEST', 'victim'))
+	#input([str(x) for x in sid_groups])
+	res, mask = EvaluateSidAgainstDescriptor(sd, user_sid, 0x02000000, sid_groups)
+	return mask
+
 def enumerate_registry_sd(reg_path, reg_handle = None):
 	# TODO: do this
 	if reg_path[-1] == '\\':
@@ -139,7 +164,7 @@ def enumerate_registry_sd(reg_path, reg_handle = None):
 				print(e)
 			
 		else:
-			sd = GetSecurityInfo(reg_handle, SE_OBJECT_TYPE.SE_REGISTRY_KEY.value, OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION)
+			sd = GetSecurityInfo(reg_handle, SE_OBJECT_TYPE.SE_REGISTRY_KEY.value, OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION, se_object_type = SE_OBJECT_TYPE.SE_REGISTRY_KEY)
 			yield (reg_path_sk, sd)
 			yield from enumerate_registry_sd(reg_path_sk, reg_handle_sk)
 
@@ -160,16 +185,45 @@ def enumerate_registry_sd(reg_path, reg_handle = None):
 	#print('%s\\%s' % (reg_path, name))
 
 if __name__ == '__main__':
-	path = 'C:\\Users\\victim\\Desktop\\course_winsec_1\\test.txt'
-	sd = get_file_sd(path)
+	path = 'C:\\Users\\'
+	#sd = get_file_sd(path)
+	#
+	#get_maximum_permissions_for_user(sd, 'VirtualClient')
+	#print(GetEffectiveRightsFromAclW(sd.Dacl, SID.from_string('S-1-5-21-824867213-435907782-1697532683-1000')))
+	
+	for filename, fdtype, sd in get_dir_file_recursive(path, with_files = False):
+		if isinstance(sd, SECURITY_DESCRIPTOR):
+			#print(filename, fdtype, sd.to_ssdl())
+			mask_calc = get_maximum_permissions_for_user(sd, 'VirtualClient')
+			mask_win = GetEffectiveRightsFromAclW(sd.Dacl, SID.from_string('S-1-5-21-824867213-435907782-1697532683-1000'))
+			if mask_calc != mask_win:
+				input('Error! Win: %s Calc: %s File: %s' % (mask_win, mask_calc, filename))
+		else:
+			continue
+			#print(filename, fdtype, sd)
+	
+	
+	
+	#for group_name in win32net.NetUserGetLocalGroups(None, 'VirtualClient'):
+	#	print(group_name)
+	#	sid, groupname, use = LookupAccountNameW(None, group_name)
+	#	print(str(sid))
+	#print(win32net.NetUserGetLocalGroups('TEST', 'victim'))
+	#win32net.NetShareGetInfo('test.corp', 'temp' , 502 )
+	#path = '\\\\test.corp\\temp\\'
+	#sd = get_file_sd(path)
 	#print(str(sd))
-	sid = SID.from_string('S-1-5-21-3448413973-1765323015-1500960949-1105')
+	#sid = SID.from_string('S-1-5-21-3448413973-1765323015-1500960949-1105')
 	#a = ConvertSidToStringSidW(sid)
 	#print(a)
 	#ConvertStringSidToSidW(a + '\x00')
 
-	eff = GetEffectiveRightsFromAclW(sd.Dacl, sid)
-	print(FILE_ACCESS_MASK(eff))
+	#eff = GetEffectiveRightsFromAclW(sd.Dacl, sid)
+	#print(FILE_ACCESS_MASK(eff))
+#
+	#sd =  get_servicemanager_sd()
+	#print(sd)
+	#print(ConvertSecurityDescriptorToStringSecurityDescriptorW(sd))
 
 	#regkey = 'HKLM\\SYSTEM\\'
 	#for key_name, sd in enumerate_registry_sd(regkey):

@@ -4,6 +4,10 @@
 #  Tamas Jos (@skelsec)
 #
 
+# TODO 
+# implement https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/21f2b5f0-7376-45bb-bc31-eaa60841dbe9
+# implement https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/9020a075-c1af-4b03-930b-ba785743bcab
+
 import io
 import enum
 from winacl.dtyp.sid import SID
@@ -80,8 +84,59 @@ class FILE_ACCESS_MASK(enum.IntFlag):
 	READ = 0x00020000
 	WRITE = 0x00020000
 	REQUIRED = 0x00010000 | 0x00020000 | 0x00040000 | 0x00080000
-
+	
 #FILE_RIGHTS = ACCESS_MASK + STANDARD_ACCESS_MASK + FILE_ACCESS_MASK
+
+# https://docs.microsoft.com/en-us/windows/win32/services/service-security-and-access-rights?redirectedfrom=MSDN
+class SC_MANAGER_ACCESS_MASK(enum.IntFlag):
+	ALL_ACCESS = 0xF003F #Includes STANDARD_RIGHTS_REQUIRED, in addition to all access rights in this table.
+	CREATE_SERVICE = 0x0002 #Required to call the CreateService function to create a service object and add it to the database.
+	CONNECT = 0x0001  #Required to connect to the service control manager.
+	ENUMERATE_SERVICE = 0x0004 #Required to call the EnumServicesStatus or EnumServicesStatusEx function to list the services that are in the database. Required to call the NotifyServiceStatusChange function to receive notification when any service is created or deleted.
+	LOCK = 0x0008 #Required to call the LockServiceDatabase function to acquire a lock on the database.
+	MODIFY_BOOT_CONFIG = 0x0020 #Required to call the NotifyBootConfigStatus function.
+	QUERY_LOCK_STATUS = 0x0010 #	Required to call the QueryServiceLockStatus function to retrieve the lock status information for the database.
+
+	GENERIC_READ = 0x80000000
+	GENERIC_WRITE = 0x4000000
+	GENERIC_EXECUTE = 0x20000000
+	GENERIC_ALL = 0x10000000
+
+# https://docs.microsoft.com/en-us/windows/win32/services/service-security-and-access-rights?redirectedfrom=MSDN
+class SERVICE_ACCESS_MASK(enum.IntFlag):
+	SERVICE_ALL_ACCESS = 0xF01FF # Includes STANDARD_RIGHTS_REQUIRED in addition to all access rights in this table.
+	SERVICE_CHANGE_CONFIG = 0x0002 # Required to call the ChangeServiceConfig or ChangeServiceConfig2 function to change the service configuration. Because this grants the caller the right to change the executable file that the system runs, it should be granted only to administrators.
+	SERVICE_ENUMERATE_DEPENDENTS = 0x0008 # Required to call the EnumDependentServices function to enumerate all the services dependent on the service.
+	SERVICE_INTERROGATE = 0x0080 # Required to call the ControlService function to ask the service to report its status immediately.
+	SERVICE_PAUSE_CONTINUE = 0x0040 # Required to call the ControlService function to pause or continue the service.
+	SERVICE_QUERY_CONFIG = 0x0001 # Required to call the QueryServiceConfig and QueryServiceConfig2 functions to query the service configuration.
+	SERVICE_QUERY_STATUS = 0x0004 # Required to call the QueryServiceStatus or QueryServiceStatusEx function to ask the service control manager about the status of the service.
+	#Required to call the NotifyServiceStatusChange function to receive notification when a service changes status.
+	SERVICE_START = 0x0010 # Required to call the StartService function to start the service.
+	SERVICE_STOP = 0x0020 # Required to call the ControlService function to stop the service.
+	SERVICE_USER_DEFINED_CONTROL = 0x0100 # Required to call the ControlService function to specify a user-defined control code.
+
+	# TODO : value for ?ACCESS_SYSTEM_SECURITY? 	Required to call the QueryServiceObjectSecurity or SetServiceObjectSecurity function to access the SACL. The proper way to obtain this access is to enable the SE_SECURITY_NAMEprivilege in the caller's current access token, open the handle for ACCESS_SYSTEM_SECURITY access, and then disable the privilege.
+	DELETE = 0x10000 #Required to call the DeleteService function to delete the service.
+	READ_CONTROL = 0x20000 #Required to call the QueryServiceObjectSecurity function to query the security descriptor of the service object.
+	WRITE_DAC = 0x40000 #Required to call the SetServiceObjectSecurity function to modify the Dacl member of the service object's security descriptor.
+	WRITE_OWNER = 0x80000 #Required to call the SetServiceObjectSecurity function to modify the Owner and Group members of the service object's security descriptor.
+
+# https://docs.microsoft.com/en-us/windows/win32/sysinfo/registry-key-security-and-access-rights?redirectedfrom=MSDN
+class REGISTRY_ACCESS_MASK(enum.IntFlag):
+	KEY_ALL_ACCESS = 0xF003F # Combines the STANDARD_RIGHTS_REQUIRED, KEY_QUERY_VALUE, KEY_SET_VALUE, KEY_CREATE_SUB_KEY, KEY_ENUMERATE_SUB_KEYS, KEY_NOTIFY, and KEY_CREATE_LINK access rights.
+	KEY_CREATE_LINK = 0x0020 # Reserved for system use.
+	KEY_CREATE_SUB_KEY = 0x0004 # Required to create a subkey of a registry key.
+	KEY_ENUMERATE_SUB_KEYS = 0x0008 # Required to enumerate the subkeys of a registry key.
+	KEY_EXECUTE = 0x20019 # Equivalent to KEY_READ.
+	KEY_NOTIFY = 0x0010 # Required to request change notifications for a registry key or for subkeys of a registry key.
+	KEY_QUERY_VALUE = 0x0001 # Required to query the values of a registry key.
+	KEY_READ = 0x20019 # Combines the STANDARD_RIGHTS_READ, KEY_QUERY_VALUE, KEY_ENUMERATE_SUB_KEYS, and KEY_NOTIFY values.
+	KEY_SET_VALUE = 0x0002 # Required to create, delete, or set a registry value.
+	KEY_WOW64_32KEY = 0x0200 # Indicates that an application on 64-bit Windows should operate on the 32-bit registry view. This flag is ignored by 32-bit Windows. For more information, see Accessing an Alternate Registry View. This flag must be combined using the OR operator with the other flags in this table that either query or access registry values. Windows 2000: This flag is not supported.
+	KEY_WOW64_64KEY = 0x0100 # Indicates that an application on 64-bit Windows should operate on the 64-bit registry view. This flag is ignored by 32-bit Windows. For more information, see Accessing an Alternate Registry View. This flag must be combined using the OR operator with the other flags in this table that either query or access registry values. Windows 2000: This flag is not supported.
+	KEY_WRITE = 0x20006 # Combines the STANDARD_RIGHTS_WRITE, KEY_SET_VALUE, and KEY_CREATE_SUB_KEY access rights.
+
 
 #http://www.kouti.com/tables/baseattributes.htm
 
@@ -287,6 +342,10 @@ ssdl_file_rights_maps_inv = {v: k for k, v in ssdl_file_rights_maps.items()}
 def mask_to_str(mask, sd_object_type = None):
 	if sd_object_type == SE_OBJECT_TYPE.SE_FILE_OBJECT:
 		return str(FILE_ACCESS_MASK(mask))
+	elif sd_object_type == SE_OBJECT_TYPE.SE_SERVICE:
+		return str(SERVICE_ACCESS_MASK(mask))
+	elif sd_object_type == SE_OBJECT_TYPE.SE_REGISTRY_KEY:
+		return str(REGISTRY_ACCESS_MASK(mask))
 	else:
 		return hex(mask)
 
@@ -337,13 +396,17 @@ class ACE:
 
 	def to_ssdl(self, sd_object_type = None):
 		pass
-
+	
+	@staticmethod
+	def add_padding(x):
+		if (4 + len(x)) % 4 != 0:
+			x += b'\x00' * ((4 + len(x)) % 4)
+		return x
 	
 	@staticmethod
 	def from_ssdl(x):
 		pass
 
-#ACCESS_ALLOWED_ACE	
 class ACCESS_ALLOWED_ACE(ACE):
 	def __init__(self):
 		self.AceType = ACEType.ACCESS_ALLOWED_ACE_TYPE
@@ -367,8 +430,7 @@ class ACCESS_ALLOWED_ACE(ACE):
 	def to_buffer(self, buff):
 		t = self.Mask.to_bytes(4,'little', signed = False)
 		t += self.Sid.to_bytes()
-		if (4 + len(t)) % 4 != 0:
-			t += b'\x00' * ((4 + len(t)) % 4)
+		t = ACE.add_padding(t)
 		self.AceSize = 4 + len(t)
 		buff.write(self.AceType.value.to_bytes(1, 'little', signed = False))
 		buff.write(self.AceFlags.to_bytes(1, 'little', signed = False))
@@ -395,7 +457,7 @@ class ACCESS_ALLOWED_ACE(ACE):
 		
 class ACCESS_DENIED_ACE(ACE):
 	def __init__(self):
-		self.AceType = None
+		self.AceType = ACEType.ACCESS_DENIED_ACE_TYPE
 		self.AceFlags = None
 		self.AceSize = None
 		self.Mask = None
@@ -407,15 +469,22 @@ class ACCESS_DENIED_ACE(ACE):
 	def from_buffer(buff, sd_object_type):
 		ace = ACCESS_DENIED_ACE()
 		ace.sd_object_type = sd_object_type
-		ace.Header = ACEHeader.from_buffer(buff)
+		ace.AceType = ACEType(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceFlags = AceFlags(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceSize = int.from_bytes(buff.read(2), 'little', signed = False)
 		ace.Mask = int.from_bytes(buff.read(4), 'little', signed = False)
 		ace.Sid = SID.from_buffer(buff)
 		return ace
 	
 	def to_buffer(self, buff):
-		self.Header.to_buffer(buff)
-		buff.write(ADS_ACCESS_MASK.to_bytes(4,'little', signed = False))
-		buff.write(ace.Sid.to_bytes())
+		t = self.Mask.to_bytes(4,'little', signed = False)
+		t += self.Sid.to_bytes()
+		t = ACE.add_padding(t)
+		self.AceSize = 4 + len(t)
+		buff.write(self.AceType.value.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceFlags.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceSize.to_bytes(2, 'little', signed = False))
+		buff.write(t)
 	
 	def to_ssdl(self, sd_object_type = None):
 		#ace_type;ace_flags;rights;object_guid;inherit_object_guid;account_sid;(resource_attribute)
@@ -430,7 +499,7 @@ class ACCESS_DENIED_ACE(ACE):
 		
 class SYSTEM_AUDIT_ACE(ACE):
 	def __init__(self):
-		self.AceType = None
+		self.AceType = ACEType.SYSTEM_AUDIT_ACE
 		self.AceFlags = None
 		self.AceSize = None
 		self.Mask = None
@@ -442,15 +511,23 @@ class SYSTEM_AUDIT_ACE(ACE):
 	def from_buffer(buff, sd_object_type):
 		ace = SYSTEM_AUDIT_ACE()
 		ace.sd_object_type = sd_object_type
-		ace.Header = ACEHeader.from_buffer(buff)
+		ace.AceType = ACEType(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceFlags = AceFlags(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceSize = int.from_bytes(buff.read(2), 'little', signed = False)
 		ace.Mask = int.from_bytes(buff.read(4), 'little', signed = False)
 		ace.Sid = SID.from_buffer(buff)
 		return ace
 
 	def to_buffer(self, buff):
-		self.Header.to_buffer(buff)
-		buff.write(ADS_ACCESS_MASK.to_bytes(4,'little', signed = False))
-		buff.write(ace.Sid.to_bytes())
+		t = self.Mask.to_bytes(4,'little', signed = False)
+		t += self.Sid.to_bytes()
+		t = ACE.add_padding(t)
+		self.AceSize = 4 + len(t)
+		buff.write(self.AceType.value.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceFlags.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceSize.to_bytes(2, 'little', signed = False))
+		buff.write(t)
+	
 
 	def to_ssdl(self, sd_object_type = None):
 		#ace_type;ace_flags;rights;object_guid;inherit_object_guid;account_sid;(resource_attribute)
@@ -465,7 +542,7 @@ class SYSTEM_AUDIT_ACE(ACE):
 		
 class SYSTEM_ALARM_ACE(ACE):
 	def __init__(self):
-		self.AceType = None
+		self.AceType = ACEType.SYSTEM_ALARM_ACE
 		self.AceFlags = None
 		self.AceSize = None
 		self.Mask = None
@@ -477,15 +554,22 @@ class SYSTEM_ALARM_ACE(ACE):
 	def from_buffer(buff, sd_object_type):
 		ace = SYSTEM_ALARM_ACE()
 		ace.sd_object_type = sd_object_type
-		ace.Header = ACEHeader.from_buffer(buff)
+		ace.AceType = ACEType(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceFlags = AceFlags(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceSize = int.from_bytes(buff.read(2), 'little', signed = False)
 		ace.Mask = int.from_bytes(buff.read(4), 'little', signed = False)
 		ace.Sid = SID.from_buffer(buff)
 		return ace
 	
 	def to_buffer(self, buff):
-		self.Header.to_buffer(buff)
-		buff.write(ADS_ACCESS_MASK.to_bytes(4,'little', signed = False))
-		buff.write(ace.Sid.to_bytes())
+		t = self.Mask.to_bytes(4,'little', signed = False)
+		t += self.Sid.to_bytes()
+		t = ACE.add_padding(t)
+		self.AceSize = 4 + len(t)
+		buff.write(self.AceType.value.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceFlags.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceSize.to_bytes(2, 'little', signed = False))
+		buff.write(t)
 
 	def to_ssdl(self, sd_object_type = None):
 		#ace_type;ace_flags;rights;object_guid;inherit_object_guid;account_sid;(resource_attribute)
@@ -506,7 +590,7 @@ class ACCESS_ALLOWED_OBJECT_Flags(enum.IntFlag):
 
 class ACCESS_ALLOWED_OBJECT_ACE:
 	def __init__(self):
-		self.AceType = None
+		self.AceType = ACEType.ACCESS_ALLOWED_OBJECT_ACE
 		self.AceFlags = None
 		self.AceSize = None
 		self.Mask = None
@@ -521,7 +605,9 @@ class ACCESS_ALLOWED_OBJECT_ACE:
 	def from_buffer(buff, sd_object_type):
 		ace = ACCESS_ALLOWED_OBJECT_ACE()
 		ace.sd_object_type = sd_object_type
-		ace.Header = ACEHeader.from_buffer(buff)
+		ace.AceType = ACEType(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceFlags = AceFlags(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceSize = int.from_bytes(buff.read(2), 'little', signed = False)
 		ace.Mask = int.from_bytes(buff.read(4), 'little', signed = False)
 		ace.Flags = ACCESS_ALLOWED_OBJECT_Flags(int.from_bytes(buff.read(4), 'little', signed = False))
 		if ace.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT:
@@ -532,14 +618,25 @@ class ACCESS_ALLOWED_OBJECT_ACE:
 		return ace
 
 	def to_buffer(self, buff):
-		self.Header.to_buffer(buff)
-		buff.write(ADS_ACCESS_MASK.to_bytes(4,'little', signed = False))
-		buff.write(self.Flags.to_bytes(4, 'little', signed = False))
+		if self.ObjectType is not None:
+			self.Flags |= ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT
+		if self.InheritedObjectType is not None:
+			self.Flags |= ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT
+
+		t = self.Mask.to_bytes(4,'little', signed = False)
+		t += self.Flags.to_bytes(4, 'little', signed = False)
 		if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT:
-			buff.write(self.ObjectType.to_bytes())
+			t += self.ObjectType.to_bytes()
 		if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT:
-			buff.write(self.InheritedObjectType.to_bytes())
-		buff.write(self.Sid.to_bytes())
+			t += self.InheritedObjectType.to_bytes()
+		
+		t += self.Sid.to_bytes()
+		t = ACE.add_padding(t)
+		self.AceSize = 4 + len(t)
+		buff.write(self.AceType.value.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceFlags.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceSize.to_bytes(2, 'little', signed = False))
+		buff.write(t)
 
 	def to_ssdl(self, sd_object_type = None):
 		#ace_type;ace_flags;rights;object_guid;inherit_object_guid;account_sid;(resource_attribute)
@@ -563,7 +660,7 @@ class ACCESS_ALLOWED_OBJECT_ACE:
 		
 class ACCESS_DENIED_OBJECT_ACE:
 	def __init__(self):
-		self.AceType = None
+		self.AceType = ACEType.ACCESS_DENIED_OBJECT_ACE
 		self.AceFlags = None
 		self.AceSize = None
 		self.Mask = None
@@ -578,7 +675,9 @@ class ACCESS_DENIED_OBJECT_ACE:
 	def from_buffer(buff, sd_object_type):
 		ace = ACCESS_DENIED_OBJECT_ACE()
 		ace.sd_object_type = sd_object_type
-		ace.Header = ACEHeader.from_buffer(buff)
+		ace.AceType = ACEType(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceFlags = AceFlags(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceSize = int.from_bytes(buff.read(2), 'little', signed = False)
 		ace.Mask = int.from_bytes(buff.read(4), 'little', signed = False)
 		ace.Flags = ACCESS_ALLOWED_OBJECT_Flags(int.from_bytes(buff.read(4), 'little', signed = False))
 		if ace.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT:
@@ -589,14 +688,25 @@ class ACCESS_DENIED_OBJECT_ACE:
 		return ace
 	
 	def to_buffer(self, buff):
-		self.Header.to_buffer(buff)
-		buff.write(ADS_ACCESS_MASK.to_bytes(4,'little', signed = False))
-		buff.write(self.Flags.to_bytes(4, 'little', signed = False))
+		if self.ObjectType is not None:
+			self.Flags |= ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT
+		if self.InheritedObjectType is not None:
+			self.Flags |= ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT
+
+		t = self.Mask.to_bytes(4,'little', signed = False)
+		t += self.Flags.to_bytes(4, 'little', signed = False)
 		if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT:
-			buff.write(self.ObjectType.to_bytes())
+			t += self.ObjectType.to_bytes()
 		if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT:
-			buff.write(self.InheritedObjectType.to_bytes())
-		buff.write(self.Sid.to_bytes())
+			t += self.InheritedObjectType.to_bytes()
+		
+		t += self.Sid.to_bytes()
+		t = ACE.add_padding(t)
+		self.AceSize = 4 + len(t)
+		buff.write(self.AceType.value.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceFlags.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceSize.to_bytes(2, 'little', signed = False))
+		buff.write(t)
 
 	def to_ssdl(self, sd_object_type = None):
 		#ace_type;ace_flags;rights;object_guid;inherit_object_guid;account_sid;(resource_attribute)
@@ -620,7 +730,7 @@ class ACCESS_DENIED_OBJECT_ACE:
 		
 class SYSTEM_AUDIT_OBJECT_ACE:
 	def __init__(self):
-		self.AceType = None
+		self.AceType = ACEType.SYSTEM_AUDIT_OBJECT_ACE
 		self.AceFlags = None
 		self.AceSize = None
 		self.Mask = None
@@ -628,15 +738,18 @@ class SYSTEM_AUDIT_OBJECT_ACE:
 		self.ObjectType = None
 		self.InheritedObjectType = None
 		self.Sid = None
-		self.ApplicationData = None
+		self.ApplicationData = None #must be bytes!
 		
 
 		self.sd_object_type = None
 	@staticmethod
 	def from_buffer(buff, sd_object_type):
+		start = buff.tell()
 		ace = SYSTEM_AUDIT_OBJECT_ACE()
 		ace.sd_object_type  = sd_object_type
-		ace.Header = ACEHeader.from_buffer(buff)
+		ace.AceType = ACEType(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceFlags = AceFlags(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceSize = int.from_bytes(buff.read(2), 'little', signed = False)
 		ace.Mask = int.from_bytes(buff.read(4), 'little', signed = False)
 		ace.Flags = ACCESS_ALLOWED_OBJECT_Flags(int.from_bytes(buff.read(4), 'little', signed = False))
 		if ace.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT:
@@ -644,20 +757,31 @@ class SYSTEM_AUDIT_OBJECT_ACE:
 		if ace.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT:
 			ace.InheritedObjectType = GUID.from_buffer(buff)
 		ace.Sid = SID.from_buffer(buff)
-		ace.ApplicationData = buff.read() #not really sure, this will consume the whole buffer! (but we dont know the size at this point!)
+		ace.ApplicationData = buff.read(ace.AceSize - (buff.tell() - start))
 		return ace
 	
-	# TODO figure out applicationdata!
-	#def to_buffer(self, buff):
-	#	self.Header.to_buffer(buff)
-	#	buff.write(ADS_ACCESS_MASK.to_bytes(4,'little', signed = False))
-	#	buff.write(self.Flags.to_bytes(4, 'little', signed = False))
-	#	if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT:
-	#		buff.write(self.ObjectType.to_bytes())
-	#	if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT:
-	#		buff.write(self.InheritedObjectType.to_bytes())
-	#	buff.write(self.Sid.to_bytes())
-	#
+	def to_buffer(self, buff):
+		if self.ObjectType is not None:
+			self.Flags |= ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT
+		if self.InheritedObjectType is not None:
+			self.Flags |= ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT
+
+		t = self.Mask.to_bytes(4,'little', signed = False)
+		t += self.Flags.to_bytes(4, 'little', signed = False)
+		if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT:
+			t += self.ObjectType.to_bytes()
+		if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT:
+			t += self.InheritedObjectType.to_bytes()
+		
+		t += self.Sid.to_bytes()
+		t += self.ApplicationData
+		t = ACE.add_padding(t)
+		self.AceSize = 4 + len(t)
+		buff.write(self.AceType.value.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceFlags.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceSize.to_bytes(2, 'little', signed = False))
+		buff.write(t)
+	
 	#def to_ssdl(self, sd_object_type = None):
 	#	#ace_type;ace_flags;rights;object_guid;inherit_object_guid;account_sid;(resource_attribute)
 	#	return '(%s;%s;%s;%s;%s;%s)' % ( 
@@ -680,7 +804,7 @@ class SYSTEM_AUDIT_OBJECT_ACE:
 		
 class ACCESS_ALLOWED_CALLBACK_ACE:
 	def __init__(self):
-		self.AceType = None
+		self.AceType = ACEType.ACCESS_ALLOWED_CALLBACK_ACE
 		self.AceFlags = None
 		self.AceSize = None
 		self.Mask = None
@@ -688,15 +812,30 @@ class ACCESS_ALLOWED_CALLBACK_ACE:
 		self.ApplicationData = None
 		
 		self.sd_object_type = None
+	
 	@staticmethod
 	def from_buffer(buff, sd_object_type):
+		start = buff.tell()
 		ace = ACCESS_ALLOWED_CALLBACK_ACE()
 		ace.sd_object_type = sd_object_type
-		ace.Header = ACEHeader.from_buffer(buff)
+		ace.AceType = ACEType(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceFlags = AceFlags(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceSize = int.from_bytes(buff.read(2), 'little', signed = False)
 		ace.Mask = int.from_bytes(buff.read(4), 'little', signed = False)
 		ace.Sid = SID.from_buffer(buff)
-		ace.ApplicationData = buff.read() #not really sure, this will consume the whole buffer! (but we dont know the size at this point!)
+		ace.ApplicationData = buff.read(ace.AceSize - (buff.tell() - start))
 		return ace
+
+	def to_buffer(self, buff):
+		t = self.Mask.to_bytes(4,'little', signed = False)		
+		t += self.Sid.to_bytes()
+		t += self.ApplicationData
+		t = ACE.add_padding(t)
+		self.AceSize = 4 + len(t)
+		buff.write(self.AceType.value.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceFlags.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceSize.to_bytes(2, 'little', signed = False))
+		buff.write(t)
 		
 	def __str__(self):
 		t = 'ACCESS_ALLOWED_CALLBACK_ACE'
@@ -709,7 +848,7 @@ class ACCESS_ALLOWED_CALLBACK_ACE:
 		
 class ACCESS_DENIED_CALLBACK_ACE:
 	def __init__(self):
-		self.AceType = None
+		self.AceType = ACEType.ACCESS_DENIED_CALLBACK_ACE
 		self.AceFlags = None
 		self.AceSize = None
 		self.Mask = None
@@ -717,15 +856,30 @@ class ACCESS_DENIED_CALLBACK_ACE:
 		self.ApplicationData = None
 		
 		self.sd_object_type = None
+	
 	@staticmethod
 	def from_buffer(buff, sd_object_type):
+		start = buff.tell()
 		ace = ACCESS_DENIED_CALLBACK_ACE()
 		ace.sd_object_type = sd_object_type
-		ace.Header = ACEHeader.from_buffer(buff)
+		ace.AceType = ACEType(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceFlags = AceFlags(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceSize = int.from_bytes(buff.read(2), 'little', signed = False)
 		ace.Mask = int.from_bytes(buff.read(4), 'little', signed = False)
 		ace.Sid = SID.from_buffer(buff)
-		ace.ApplicationData = buff.read() #not really sure, this will consume the whole buffer! (but we dont know the size at this point!)
+		ace.ApplicationData = buff.read(ace.AceSize - (buff.tell() - start))
 		return ace
+
+	def to_buffer(self, buff):
+		t = self.Mask.to_bytes(4,'little', signed = False)		
+		t += self.Sid.to_bytes()
+		t += self.ApplicationData
+		t = ACE.add_padding(t)
+		self.AceSize = 4 + len(t)
+		buff.write(self.AceType.value.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceFlags.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceSize.to_bytes(2, 'little', signed = False))
+		buff.write(t)
 		
 	def __str__(self):
 		t = 'ACCESS_DENIED_CALLBACK_ACE'
@@ -738,7 +892,7 @@ class ACCESS_DENIED_CALLBACK_ACE:
 		
 class ACCESS_ALLOWED_CALLBACK_OBJECT_ACE:
 	def __init__(self):
-		self.AceType = None
+		self.AceType = ACEType.ACCESS_ALLOWED_CALLBACK_OBJECT_ACE
 		self.AceFlags = None
 		self.AceSize = None
 		self.Mask = None
@@ -749,11 +903,15 @@ class ACCESS_ALLOWED_CALLBACK_OBJECT_ACE:
 		self.ApplicationData = None
 		
 		self.sd_object_type = None
+	
 	@staticmethod
 	def from_buffer(buff, sd_object_type):
+		start = buff.tell()
 		ace = ACCESS_ALLOWED_CALLBACK_OBJECT_ACE()
 		ace.sd_object_type = sd_object_type
-		ace.Header = ACEHeader.from_buffer(buff)
+		ace.AceType = ACEType(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceFlags = AceFlags(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceSize = int.from_bytes(buff.read(2), 'little', signed = False)
 		ace.Mask = int.from_bytes(buff.read(4), 'little', signed = False)
 		ace.Flags = ACCESS_ALLOWED_OBJECT_Flags(int.from_bytes(buff.read(4), 'little', signed = False))
 		if ace.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT:
@@ -761,8 +919,30 @@ class ACCESS_ALLOWED_CALLBACK_OBJECT_ACE:
 		if ace.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT:
 			ace.InheritedObjectType = GUID.from_buffer(buff)
 		ace.Sid = SID.from_buffer(buff)
-		ace.ApplicationData = buff.read() #not really sure, this will consume the whole buffer! (but we dont know the size at this point!)
+		ace.ApplicationData = buff.read(ace.AceSize - (buff.tell() - start))
 		return ace
+
+	def to_buffer(self, buff):
+		if self.ObjectType is not None:
+			self.Flags |= ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT
+		if self.InheritedObjectType is not None:
+			self.Flags |= ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT
+
+		t = self.Mask.to_bytes(4,'little', signed = False)
+		t += self.Flags.to_bytes(4, 'little', signed = False)
+		if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT:
+			t += self.ObjectType.to_bytes()
+		if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT:
+			t += self.InheritedObjectType.to_bytes()
+		
+		t += self.Sid.to_bytes()
+		t += self.ApplicationData
+		t = ACE.add_padding(t)
+		self.AceSize = 4 + len(t)
+		buff.write(self.AceType.value.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceFlags.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceSize.to_bytes(2, 'little', signed = False))
+		buff.write(t)
 		
 	def __str__(self):
 		t = 'ACCESS_ALLOWED_CALLBACK_OBJECT_ACE'
@@ -775,7 +955,7 @@ class ACCESS_ALLOWED_CALLBACK_OBJECT_ACE:
 		
 class ACCESS_DENIED_CALLBACK_OBJECT_ACE:
 	def __init__(self):
-		self.AceType = None
+		self.AceType = ACEType.ACCESS_DENIED_CALLBACK_OBJECT_ACE
 		self.AceFlags = None
 		self.AceSize = None
 		self.Mask = None
@@ -788,9 +968,12 @@ class ACCESS_DENIED_CALLBACK_OBJECT_ACE:
 		self.sd_object_type = None
 	@staticmethod
 	def from_buffer(buff):
+		start = buff.tell()
 		ace = ACCESS_DENIED_CALLBACK_OBJECT_ACE()
 		ace.sd_object_type = sd_object_type
-		ace.Header = ACEHeader.from_buffer(buff)
+		ace.AceType = ACEType(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceFlags = AceFlags(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceSize = int.from_bytes(buff.read(2), 'little', signed = False)
 		ace.Mask = int.from_bytes(buff.read(4), 'little', signed = False)
 		ace.Flags = ACCESS_ALLOWED_OBJECT_Flags(int.from_bytes(buff.read(4), 'little', signed = False))
 		if ace.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT:
@@ -798,8 +981,30 @@ class ACCESS_DENIED_CALLBACK_OBJECT_ACE:
 		if ace.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT:
 			ace.InheritedObjectType = GUID.from_buffer(buff)
 		ace.Sid = SID.from_buffer(buff)
-		ace.ApplicationData = buff.read() #not really sure, this will consume the whole buffer! (but we dont know the size at this point!)
+		ace.ApplicationData = buff.read(ace.AceSize - (buff.tell() - start))
 		return ace
+	
+	def to_buffer(self, buff):
+		if self.ObjectType is not None:
+			self.Flags |= ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT
+		if self.InheritedObjectType is not None:
+			self.Flags |= ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT
+
+		t = self.Mask.to_bytes(4,'little', signed = False)
+		t += self.Flags.to_bytes(4, 'little', signed = False)
+		if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT:
+			t += self.ObjectType.to_bytes()
+		if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT:
+			t += self.InheritedObjectType.to_bytes()
+		
+		t += self.Sid.to_bytes()
+		t += self.ApplicationData
+		t = ACE.add_padding(t)
+		self.AceSize = 4 + len(t)
+		buff.write(self.AceType.value.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceFlags.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceSize.to_bytes(2, 'little', signed = False))
+		buff.write(t)
 		
 	def __str__(self):
 		t = 'ACCESS_DENIED_CALLBACK_OBJECT_ACE'
@@ -812,7 +1017,7 @@ class ACCESS_DENIED_CALLBACK_OBJECT_ACE:
 		
 class SYSTEM_AUDIT_CALLBACK_ACE:
 	def __init__(self):
-		self.AceType = None
+		self.AceType = ACEType.SYSTEM_AUDIT_CALLBACK_ACE
 		self.AceFlags = None
 		self.AceSize = None
 		self.Mask = None
@@ -823,13 +1028,28 @@ class SYSTEM_AUDIT_CALLBACK_ACE:
 		
 	@staticmethod
 	def from_buffer(buff, sd_object_type):
+		start = buff.tell()
 		ace = SYSTEM_AUDIT_CALLBACK_ACE()
 		ace.sd_object_type = sd_object_type
-		ace.Header = ACEHeader.from_buffer(buff)
+		ace.AceType = ACEType(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceFlags = AceFlags(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceSize = int.from_bytes(buff.read(2), 'little', signed = False)
 		ace.Mask = int.from_bytes(buff.read(4), 'little', signed = False)
 		ace.Sid = SID.from_buffer(buff)
-		ace.ApplicationData = buff.read() #not really sure, this will consume the whole buffer! (but we dont know the size at this point!)
+		ace.ApplicationData = buff.read(ace.AceSize - (buff.tell() - start))
 		return ace
+	
+	def to_buffer(self, buff):
+		t = self.Mask.to_bytes(4,'little', signed = False)		
+		t += self.Sid.to_bytes()
+		t += self.ApplicationData
+		t = ACE.add_padding(t)
+		self.AceSize = 4 + len(t)
+		buff.write(self.AceType.value.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceFlags.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceSize.to_bytes(2, 'little', signed = False))
+		buff.write(t)
+		
 		
 	def __str__(self):
 		t = 'SYSTEM_AUDIT_CALLBACK_ACE'
@@ -842,7 +1062,7 @@ class SYSTEM_AUDIT_CALLBACK_ACE:
 		
 class SYSTEM_AUDIT_CALLBACK_OBJECT_ACE:
 	def __init__(self):
-		self.AceType = None
+		self.AceType = ACEType.SYSTEM_AUDIT_CALLBACK_OBJECT_ACE
 		self.AceFlags = None
 		self.AceSize = None
 		self.Mask = None
@@ -855,9 +1075,12 @@ class SYSTEM_AUDIT_CALLBACK_OBJECT_ACE:
 		self.sd_object_type = None
 	@staticmethod
 	def from_buffer(buff, sd_object_type):
+		start = buff.tell()
 		ace = SYSTEM_AUDIT_CALLBACK_OBJECT_ACE()
 		ace.sd_object_type = sd_object_type
-		ace.Header = ACEHeader.from_buffer(buff)
+		ace.AceType = ACEType(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceFlags = AceFlags(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceSize = int.from_bytes(buff.read(2), 'little', signed = False)
 		ace.Mask = int.from_bytes(buff.read(4), 'little', signed = False)
 		ace.Flags = ACCESS_ALLOWED_OBJECT_Flags(int.from_bytes(buff.read(4), 'little', signed = False))
 		if ace.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT:
@@ -865,8 +1088,30 @@ class SYSTEM_AUDIT_CALLBACK_OBJECT_ACE:
 		if ace.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT:
 			ace.InheritedObjectType = GUID.from_buffer(buff)
 		ace.Sid = SID.from_buffer(buff)
-		ace.ApplicationData = buff.read() #not really sure, this will consume the whole buffer! (but we dont know the size at this point!)
+		ace.ApplicationData = buff.read(ace.AceSize - (buff.tell() - start))
 		return ace
+	
+	def to_buffer(self, buff):
+		if self.ObjectType is not None:
+			self.Flags |= ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT
+		if self.InheritedObjectType is not None:
+			self.Flags |= ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT
+
+		t = self.Mask.to_bytes(4,'little', signed = False)
+		t += self.Flags.to_bytes(4, 'little', signed = False)
+		if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT:
+			t += self.ObjectType.to_bytes()
+		if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT:
+			t += self.InheritedObjectType.to_bytes()
+		
+		t += self.Sid.to_bytes()
+		t += self.ApplicationData
+		t = ACE.add_padding(t)
+		self.AceSize = 4 + len(t)
+		buff.write(self.AceType.value.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceFlags.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceSize.to_bytes(2, 'little', signed = False))
+		buff.write(t)
 		
 	def __str__(self):
 		t = 'SYSTEM_AUDIT_CALLBACK_OBJECT_ACE'
@@ -879,7 +1124,7 @@ class SYSTEM_AUDIT_CALLBACK_OBJECT_ACE:
 		
 class SYSTEM_MANDATORY_LABEL_ACE:
 	def __init__(self):
-		self.AceType = None
+		self.AceType = ACEType.SYSTEM_MANDATORY_LABEL_ACE
 		self.AceFlags = None
 		self.AceSize = None
 		self.Mask = None
@@ -891,31 +1136,57 @@ class SYSTEM_MANDATORY_LABEL_ACE:
 	def from_buffer(buff, sd_object_type):
 		ace = SYSTEM_MANDATORY_LABEL_ACE()
 		ace.sd_object_type = sd_object_type
-		ace.Header = ACEHeader.from_buffer(buff)
+		ace.AceType = ACEType(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceFlags = AceFlags(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceSize = int.from_bytes(buff.read(2), 'little', signed = False)
 		ace.Mask = int.from_bytes(buff.read(4), 'little', signed = False)
 		ace.Sid = SID.from_buffer(buff)
 		return ace
+
+	def to_buffer(self, buff):
+		t = self.Mask.to_bytes(4,'little', signed = False)
+		t += self.Sid.to_bytes()
+		t = ACE.add_padding(t)
+		self.AceSize = 4 + len(t)
+		buff.write(self.AceType.value.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceFlags.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceSize.to_bytes(2, 'little', signed = False))
+		buff.write(t)
 		
 class SYSTEM_RESOURCE_ATTRIBUTE_ACE:
 	def __init__(self):
-		self.AceType = None
+		self.AceType = ACEType.SYSTEM_RESOURCE_ATTRIBUTE_ACE
 		self.AceFlags = None
 		self.AceSize = None
 		self.Mask = None
 		self.Sid = None
-		self.AttributeData = None
+		self.AttributeData = None #must be bytes for now. structure is TODO (see top of file)
 		
 		self.sd_object_type = None
 
 	@staticmethod
 	def from_buffer(buff, sd_object_type):
+		start = buff.tell()
 		ace = SYSTEM_RESOURCE_ATTRIBUTE_ACE()
 		ace.sd_object_type = sd_object_type
-		ace.Header = ACEHeader.from_buffer(buff)
+		ace.AceType = ACEType(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceFlags = AceFlags(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceSize = int.from_bytes(buff.read(2), 'little', signed = False)
 		ace.Mask = int.from_bytes(buff.read(4), 'little', signed = False)
 		ace.Sid = SID.from_buffer(buff)
-		ace.AttributeData = buff.read() #not really sure, this will consume the whole buffer! (but we dont know the size at this point!)
+		ace.AttributeData = buff.read(ace.AceSize - (buff.tell() - start))
 		return ace
+
+	def to_buffer(self, buff):
+		t = self.Mask.to_bytes(4,'little', signed = False)		
+		t += self.Sid.to_bytes()
+		t += self.AttributeData
+		t = ACE.add_padding(t)
+		self.AceSize = 4 + len(t)
+		buff.write(self.AceType.value.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceFlags.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceSize.to_bytes(2, 'little', signed = False))
+		buff.write(t)
 		
 	def __str__(self):
 		t = 'SYSTEM_RESOURCE_ATTRIBUTE_ACE'
@@ -928,7 +1199,7 @@ class SYSTEM_RESOURCE_ATTRIBUTE_ACE:
 		
 class SYSTEM_SCOPED_POLICY_ID_ACE:
 	def __init__(self):
-		self.AceType = None
+		self.AceType = ACEType.SYSTEM_SCOPED_POLICY_ID_ACE
 		self.AceFlags = None
 		self.AceSize = None
 		self.Mask = None
@@ -940,10 +1211,22 @@ class SYSTEM_SCOPED_POLICY_ID_ACE:
 	def from_buffer(buff, sd_object_type):
 		ace = SYSTEM_SCOPED_POLICY_ID_ACE()
 		ace.sd_object_type = sd_object_type
-		ace.Header = ACEHeader.from_buffer(buff)
+		ace.AceType = ACEType(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceFlags = AceFlags(int.from_bytes(buff.read(1), 'little', signed = False))
+		ace.AceSize = int.from_bytes(buff.read(2), 'little', signed = False)
 		ace.Mask = int.from_bytes(buff.read(4), 'little', signed = False)
 		ace.Sid = SID.from_buffer(buff)
 		return ace
+
+	def to_buffer(self, buff):
+		t = self.Mask.to_bytes(4,'little', signed = False)
+		t += self.Sid.to_bytes()
+		t = ACE.add_padding(t)
+		self.AceSize = 4 + len(t)
+		buff.write(self.AceType.value.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceFlags.to_bytes(1, 'little', signed = False))
+		buff.write(self.AceSize.to_bytes(2, 'little', signed = False))
+		buff.write(t)
 		
 acetype2ace = {
 	ACEType.ACCESS_ALLOWED_ACE_TYPE : ACCESS_ALLOWED_ACE,

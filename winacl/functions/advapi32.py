@@ -286,6 +286,7 @@ def LookupAccountSidW(lpSystemName, sid_data):
 		raise ctypes.WinError()
 	return lpName.value, lpReferencedDomainName.value, peUse.value
 
+# https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-lookupaccountnamew
 def LookupAccountNameW(lpSystemName, accountname):
 	_LookupAccountNameW = windll.advapi32.LookupAccountNameW
 	_LookupAccountNameW.argtypes = [LPWSTR, LPWSTR, PSID, LPDWORD, LPWSTR, LPDWORD, LPDWORD]
@@ -308,7 +309,7 @@ def LookupAccountNameW(lpSystemName, accountname):
 	
 	buff = MemoryBuffer(psid.value)
 	sid = SID.from_buffer(buff)
-	LocalFree(psid)
+	#LocalFree(psid)
 	return sid, lpReferencedDomainName.value, peUse.value
 
 
@@ -317,12 +318,14 @@ def LookupAccountNameW(lpSystemName, accountname):
 # https://docs.microsoft.com/en-us/windows/win32/secauthz/security-descriptor-string-format
 SDDL_REVISION_1 = 1
 
-def ConvertSecurityDescriptorToStringSecurityDescriptorW(psd, req_info = OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION):
+def ConvertSecurityDescriptorToStringSecurityDescriptorW(sd, req_info = OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION):
 	_ConvertSecurityDescriptorToStringSecurityDescriptorW = windll.advapi32.ConvertSecurityDescriptorToStringSecurityDescriptorW
 	_ConvertSecurityDescriptorToStringSecurityDescriptorW.argtypes = [PVOID, DWORD, DWORD, PVOID, PULONG]
 	_ConvertSecurityDescriptorToStringSecurityDescriptorW.restype  = DWORD
 	_ConvertSecurityDescriptorToStringSecurityDescriptorW.errcheck  = RaiseIfZero
 
+	sd_data = sd.to_bytes()
+	psd = ctypes.create_string_buffer(sd_data, len(sd_data))
 	pstr = ctypes.pointer(ctypes.c_uint(0))
 	pstrsize = ctypes.c_uint(0)
 
@@ -340,7 +343,7 @@ def ConvertSecurityDescriptorToStringSecurityDescriptorW(psd, req_info = OWNER_S
 #  LPDWORD              pcbBytesNeeded
 #);
 
-def QueryServiceObjectSecurity(hService, dwSecurityInformation = OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION, with_sd = False):
+def QueryServiceObjectSecurity(hService, dwSecurityInformation = OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION, sd_object_type = None):
 	_QueryServiceObjectSecurity = windll.advapi32.QueryServiceObjectSecurity
 	_QueryServiceObjectSecurity.argtypes = [SC_HANDLE, DWORD, PVOID, DWORD, LPDWORD]
 	_QueryServiceObjectSecurity.restype  = DWORD
@@ -365,12 +368,9 @@ def QueryServiceObjectSecurity(hService, dwSecurityInformation = OWNER_SECURITY_
 	if res == 0:
 		raise ctypes.WinError(result)
 	buff = ctypes.string_at(lpSecurityDescriptor, pcbBytesNeeded.value)
-	sd = SECURITY_DESCRIPTOR.from_bytes(buff)
+	sd = SECURITY_DESCRIPTOR.from_bytes(buff, sd_object_type)
 
-	if with_sd is False:
-		 return sd
-	else:
-		return sd, lpSecurityDescriptor
+	return sd
 
 
 def OpenSCManagerW(lpMachineName = None, lpDatabaseName = None, dwDesiredAccess = SC_MANAGER_ALL_ACCESS):
@@ -601,3 +601,28 @@ def RegEnumValueW(hKey):
 			raise ctypes.WinError()
 
 	return subkeys
+
+
+# https://docs.microsoft.com/en-us/windows/win32/api/lmshare/nf-lmshare-netsharegetinfo
+#NET_API_STATUS NET_API_FUNCTION NetShareGetInfo(
+#  LMSTR  servername,
+#  LMSTR  netname,
+#  DWORD  level,
+#  LPBYTE *bufptr
+#);
+
+def NetShareGetInfo(servername, sharename, level = 502):
+	_NetShareGetInfo = windll.netapi32.NetShareGetInfo
+	_NetShareGetInfo.argtypes = [PVOID, PVOID, DWORD, PVOID]
+	_NetShareGetInfo.restype  = DWORD
+	_NetShareGetInfo.errcheck = RaiseIfNotErrorSuccess
+
+	pservername = ctypes.create_string_buffer(servername.encode('ascii'), len(servername.encode('ascii')))
+	psharename = ctypes.create_string_buffer(sharename.encode('ascii'), len(sharename.encode('ascii')))
+	pbuff = ctypes.pointer(ctypes.c_uint(0))
+
+	_NetShareGetInfo(ctypes.pointer((pservername)), ctypes.pointer(psharename), level, pbuff)
+	print(pbuff)
+	#LocalFree(cstr_sid)
+
+	return str_sid
