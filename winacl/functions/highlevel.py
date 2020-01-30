@@ -8,11 +8,11 @@ from winacl.functions.advapi32 import LookupAccountNameW, LookupAccountSidW, \
 	SetSecurityInfo, BuildTrusteeWithSidW, GetEffectiveRightsFromAclW, \
 	ConvertSidToStringSidW, ConvertStringSidToSidW, \
 	ConvertSecurityDescriptorToStringSecurityDescriptorW
-import win32net
+from winacl.functions.netapi32 import NetUserGetLocalGroups
 import glob
 import os
 from winacl.dtyp.security_descriptor import SECURITY_DESCRIPTOR
-from winacl.dtyp.ace import ACCESS_ALLOWED_ACE, AceFlags, FILE_ACCESS_MASK
+from winacl.dtyp.ace import ACCESS_ALLOWED_ACE, AceFlags, FILE_ACCESS_MASK, ACCESS_MASK
 from winacl.dtyp.sid import SID
 from winacl.functions.rights_calc import EvaluateSidAgainstDescriptor
 
@@ -77,6 +77,7 @@ def get_service_sd(service_name):
 	return sd
 
 def enumerate_all_service_sd():
+	yield 'SCM', get_servicemanager_sd()
 	scm_handle = OpenSCManagerW(dwDesiredAccess = READ_CONTROL | SC_MANAGER_ENUMERATE_SERVICE )
 	for service_name in EnumServicesStatusW(scm_handle):
 		try:
@@ -127,7 +128,7 @@ def get_maximum_permissions_for_user(sd, username):
 	user_sid, *t = LookupAccountNameW(domain, username)
 	#print(str(user_sid))
 	sid_groups.append(user_sid)
-	for group_name in win32net.NetUserGetLocalGroups(domain, username):
+	for group_name in NetUserGetLocalGroups(domain, username):
 		#print(group_name)
 		sid, groupname, use = LookupAccountNameW(domain, group_name)
 		#print(str(sid))
@@ -185,23 +186,26 @@ def enumerate_registry_sd(reg_path, reg_handle = None):
 	#print('%s\\%s' % (reg_path, name))
 
 if __name__ == '__main__':
-	path = 'C:\\Users\\'
+	
+	NetUserGetLocalGroups(None, 'VirtualClient')
+	
+	#path = 'C:\\Users\\'
 	#sd = get_file_sd(path)
 	#
 	#get_maximum_permissions_for_user(sd, 'VirtualClient')
 	#print(GetEffectiveRightsFromAclW(sd.Dacl, SID.from_string('S-1-5-21-824867213-435907782-1697532683-1000')))
 	
-	for filename, fdtype, sd in get_dir_file_recursive(path, with_files = False):
-		if isinstance(sd, SECURITY_DESCRIPTOR):
-			#print(filename, fdtype, sd.to_ssdl())
-			mask_calc = get_maximum_permissions_for_user(sd, 'VirtualClient')
-			mask_win = GetEffectiveRightsFromAclW(sd.Dacl, SID.from_string('S-1-5-21-824867213-435907782-1697532683-1000'))
-			if mask_calc != mask_win:
-				input('Error! Win: %s Calc: %s File: %s' % (mask_win, mask_calc, filename))
-		else:
-			continue
-			#print(filename, fdtype, sd)
-	
+	#for filename, fdtype, sd in get_dir_file_recursive(path, with_files = False):
+	#	if isinstance(sd, SECURITY_DESCRIPTOR):
+	#		#print(filename, fdtype, sd.to_ssdl())
+	#		mask_calc = get_maximum_permissions_for_user(sd, 'TEST\\Administrator')
+	#		mask_win = GetEffectiveRightsFromAclW(sd.Dacl, SID.from_string('S-1-5-21-824867213-435907782-1697532683-1000'))
+	#		if mask_calc != mask_win:
+	#			input('Error! Win: %s Calc: %s File: %s' % (mask_win, mask_calc, filename))
+	#	else:
+	#		continue
+	#		#print(filename, fdtype, sd)
+	#
 	
 	
 	#for group_name in win32net.NetUserGetLocalGroups(None, 'VirtualClient'):
