@@ -6,6 +6,11 @@ class LOCALGROUP_USERS_INFO_0(Structure):
 	]
 PLOCALGROUP_USERS_INFO_0 = ctypes.POINTER(LOCALGROUP_USERS_INFO_0)
 
+class USER_INFO_0(Structure):
+	_fields_ = [
+		("usri0_name", LPWSTR),
+	]
+PUSER_INFO_0 = ctypes.POINTER(USER_INFO_0)
 
 LG_INCLUDE_INDIRECT = 1
 
@@ -74,3 +79,38 @@ def NetUserGetLocalGroups(server_name, user_name, flags = 0):
 	NetApiBufferFree(addressof(bufptr.contents))
 
 	return membership_goups
+
+
+# https://docs.microsoft.com/en-us/windows/win32/api/lmaccess/nf-lmaccess-netusergetinfo
+
+#NET_API_STATUS NET_API_FUNCTION NetUserGetInfo(
+#  LPCWSTR servername,
+#  LPCWSTR username,
+#  DWORD   level,
+#  LPBYTE  *bufptr
+#);
+def NetUserGetInfo(server_name, user_name): #level = 0
+	_NetUserGetInfo = windll.netapi32.NetUserGetInfo
+	_NetUserGetInfo.argtypes = [LPWSTR, LPWSTR, DWORD, LPDWORD]
+	_NetUserGetInfo.restype  = DWORD
+	_NetUserGetInfo.errcheck = RaiseIfNotErrorSuccess
+
+	level = 0
+	pserver_name = None
+	if server_name is not None:
+		pserver_name = ctypes.create_unicode_buffer(server_name)
+	puser_name = None
+	if user_name is not None:
+		puser_name = ctypes.create_unicode_buffer(user_name)
+	bufptr = ctypes.pointer(DWORD(0))
+
+	_NetUserGetInfo(
+		pserver_name, 
+		puser_name, 
+		level, 
+		bufptr
+	)
+
+	res = ctypes.cast(addressof(bufptr.contents), PUSER_INFO_0)
+	print(res)
+	NetApiBufferFree(addressof(bufptr.contents))

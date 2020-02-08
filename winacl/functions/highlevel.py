@@ -8,7 +8,7 @@ from winacl.functions.advapi32 import LookupAccountNameW, LookupAccountSidW, \
 	SetSecurityInfo, BuildTrusteeWithSidW, GetEffectiveRightsFromAclW, \
 	ConvertSidToStringSidW, ConvertStringSidToSidW, \
 	ConvertSecurityDescriptorToStringSecurityDescriptorW
-from winacl.functions.netapi32 import NetUserGetLocalGroups
+from winacl.functions.netapi32 import NetUserGetLocalGroups, NetUserGetInfo
 import glob
 import os
 from winacl.dtyp.security_descriptor import SECURITY_DESCRIPTOR
@@ -187,8 +187,8 @@ def enumerate_registry_sd(reg_path, reg_handle = None):
 
 if __name__ == '__main__':
 	
-	NetUserGetLocalGroups(None, 'VirtualClient')
-	
+	#NetUserGetLocalGroups(None, 'VirtualClient')
+	#NetUserGetInfo(None, None)
 	#path = 'C:\\Users\\'
 	#sd = get_file_sd(path)
 	#
