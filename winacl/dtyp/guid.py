@@ -3,6 +3,8 @@
 #  Tamas Jos (@skelsec)
 #
 
+import io
+
 # https://docs.microsoft.com/en-us/previous-versions/aa373931(v%3Dvs.80)
 class GUID:
 	def __init__(self):
@@ -10,7 +12,17 @@ class GUID:
 		self.Data2 = None
 		self.Data3 = None
 		self.Data4 = None
-		
+	
+	def to_bytes(self):
+		return self.Data1[::-1] + self.Data2[::-1] + self.Data3[::-1] + self.Data4
+
+	def to_buffer(self, buff):
+		buff.write(self.to_bytes())
+
+	@staticmethod
+	def from_bytes(data):
+		return GUID.from_buffer(io.BytesIO(data))
+	
 	@staticmethod
 	def from_buffer(buff):
 		guid = GUID()
