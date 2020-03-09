@@ -185,7 +185,7 @@ def enumerate_registry_sd(reg_path, reg_handle = None):
 	#	
 	#print('%s\\%s' % (reg_path, name))
 
-if __name__ == '__main__':
+#if __name__ == '__main__':
 	
 	#NetUserGetLocalGroups(None, 'VirtualClient')
 	#NetUserGetInfo(None, None)
