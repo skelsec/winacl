@@ -1,3 +1,4 @@
+import ctypes
 from winacl.functions.constants import SE_OBJECT_TYPE
 from winacl.functions.kernel32 import CloseHandle, CreateFileW, GENERIC_READ, READ_CONTROL, OPEN_EXISTING, FILE_ATTRIBUTE_DIRECTORY, FILE_FLAG_BACKUP_SEMANTICS
 from winacl.functions.advapi32 import LookupAccountNameW, LookupAccountSidW, \
@@ -7,7 +8,8 @@ from winacl.functions.advapi32 import LookupAccountNameW, LookupAccountSidW, \
 	hive_name_map, RegOpenKeyExW, RegCloseKey, RegEnumKeyExW, RegEnumValueW, \
 	SetSecurityInfo, BuildTrusteeWithSidW, GetEffectiveRightsFromAclW, \
 	ConvertSidToStringSidW, ConvertStringSidToSidW, \
-	ConvertSecurityDescriptorToStringSecurityDescriptorW
+	ConvertSecurityDescriptorToStringSecurityDescriptorW, OpenProcessToken, GetTokenInformation, \
+	LsaGetLogonSessionData, TokenStatistics, OpenProcess, GetCurrentProcessId
 from winacl.functions.netapi32 import NetUserGetLocalGroups, NetUserGetInfo
 import glob
 import os
@@ -172,97 +174,8 @@ def enumerate_registry_sd(reg_path, reg_handle = None):
 	for reg_handle in handles:
 		RegCloseKey(reg_handle)
 
-
-	#values = RegEnumValueW(reg_handle)
-	#print(values)
-	#for value_name in values:
-	#	print(value_name)
-	#	vhandle = RegOpenKeyExW(reg_handle, value_name)
-	#	sd = GetSecurityInfo(vhandle, SE_OBJECT_TYPE.SE_REGISTRY_KEY.value, OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION)
-	#	print(sd)
-	#	input()
-	#
-	#	
-	#print('%s\\%s' % (reg_path, name))
-
-#if __name__ == '__main__':
-	
-	#NetUserGetLocalGroups(None, 'VirtualClient')
-	#NetUserGetInfo(None, None)
-	#path = 'C:\\Users\\'
-	#sd = get_file_sd(path)
-	#
-	#get_maximum_permissions_for_user(sd, 'VirtualClient')
-	#print(GetEffectiveRightsFromAclW(sd.Dacl, SID.from_string('S-1-5-21-824867213-435907782-1697532683-1000')))
-	
-	#for filename, fdtype, sd in get_dir_file_recursive(path, with_files = False):
-	#	if isinstance(sd, SECURITY_DESCRIPTOR):
-	#		#print(filename, fdtype, sd.to_ssdl())
-	#		mask_calc = get_maximum_permissions_for_user(sd, 'TEST\\Administrator')
-	#		mask_win = GetEffectiveRightsFromAclW(sd.Dacl, SID.from_string('S-1-5-21-824867213-435907782-1697532683-1000'))
-	#		if mask_calc != mask_win:
-	#			input('Error! Win: %s Calc: %s File: %s' % (mask_win, mask_calc, filename))
-	#	else:
-	#		continue
-	#		#print(filename, fdtype, sd)
-	#
-	
-	
-	#for group_name in win32net.NetUserGetLocalGroups(None, 'VirtualClient'):
-	#	print(group_name)
-	#	sid, groupname, use = LookupAccountNameW(None, group_name)
-	#	print(str(sid))
-	#print(win32net.NetUserGetLocalGroups('TEST', 'victim'))
-	#win32net.NetShareGetInfo('test.corp', 'temp' , 502 )
-	#path = '\\\\test.corp\\temp\\'
-	#sd = get_file_sd(path)
-	#print(str(sd))
-	#sid = SID.from_string('S-1-5-21-3448413973-1765323015-1500960949-1105')
-	#a = ConvertSidToStringSidW(sid)
-	#print(a)
-	#ConvertStringSidToSidW(a + '\x00')
-
-	#eff = GetEffectiveRightsFromAclW(sd.Dacl, sid)
-	#print(FILE_ACCESS_MASK(eff))
-#
-	#sd =  get_servicemanager_sd()
-	#print(sd)
-	#print(ConvertSecurityDescriptorToStringSecurityDescriptorW(sd))
-
-	#regkey = 'HKLM\\SYSTEM\\'
-	#for key_name, sd in enumerate_registry_sd(regkey):
-	#	print(key_name + sd.to_ssdl())
-
-	#regkey = 'HKLM\\SYSTEM\\ControlSet001\\Enum\\HTREE\\ROOT\\0'
-	#print(get_registry_key_sd(regkey))
-	
-	#print(get_registry_hive_sd('HKLM'))
-
-	#path = 'C:\\Users\\victim\\Desktop\\course_winsec_1\\example_3.py'
-	#for service_name, sd in enumerate_all_service_sd():
-	#	print(service_name)
-	
-	#print(get_servicemanager_sd())
-	#print(get_service_sd('WinRM'))
-	
-	#for filename, fdtype, sd in get_dir_file_recursive(path, with_files = False):
-	#    if isinstance(sd, SECURITY_DESCRIPTOR):
-	#        print(filename, fdtype, sd.to_ssdl())
-	#    else:
-	#        print(filename, fdtype, sd)
-	
-	
-	#sd = get_file_sd(path)
-	#print(str(sd))
-	#print(sd.to_ssdl())
-
-	#data = bytes.fromhex('01000480d4000000e000000000000000140000000200c00007000000000014000100000001010000000000050b000000000014001500020001010000000000050400000000001400150002000101000000000005060000000000140035000200010100000000000512000000000018003f000f00010200000000000520000000200200000000180001000000010200000000000f02000000010000000000380001000000010a00000000000f0300000000040000b6747a1f9e6814e763514a2a3cd5b771b29878d64c2476dc5c2193100dbadbed010100000000000512000000010100000000000512000000')
-	#sd = SECURITY_DESCRIPTOR.from_bytes(data)
-	#print(sd)
-	#print(sd.to_bytes())
-	##print(sd.to_bytes() == data)
-	##for i, (o, m) in enumerate(zip(data, sd.to_bytes())):
-	##    if o != m:
-	##        print(i)  
-	#sd2 = SECURITY_DESCRIPTOR.from_bytes(sd.to_bytes())
-	#print(sd2)
+def get_logon_info():
+	phandle = OpenProcess(None , False, GetCurrentProcessId())
+	tokhandle = OpenProcessToken(phandle)
+	stats = GetTokenInformation(tokhandle, TokenStatistics)
+	return LsaGetLogonSessionData(stats.AuthenticationId)

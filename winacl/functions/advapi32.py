@@ -11,6 +11,69 @@ def win_succ_check(result, func, arguments):
 		raise ctypes.WinError(result)
 	return result
 
+### https://github.com/MarioVilas/winappdbg/blob/master/winappdbg/win32/advapi32.py
+### most parts taken from here!
+
+TOKEN_INFORMATION_CLASS = ctypes.c_int
+
+TokenUser                               = 1
+TokenGroups                             = 2
+TokenPrivileges                         = 3
+TokenOwner                              = 4
+TokenPrimaryGroup                       = 5
+TokenDefaultDacl                        = 6
+TokenSource                             = 7
+TokenType                               = 8
+TokenImpersonationLevel                 = 9
+TokenStatistics                         = 10
+TokenRestrictedSids                     = 11
+TokenSessionId                          = 12
+TokenGroupsAndPrivileges                = 13
+TokenSessionReference                   = 14
+TokenSandBoxInert                       = 15
+TokenAuditPolicy                        = 16
+TokenOrigin                             = 17
+TokenElevationType                      = 18
+TokenLinkedToken                        = 19
+TokenElevation                          = 20
+TokenHasRestrictions                    = 21
+TokenAccessInformation                  = 22
+TokenVirtualizationAllowed              = 23
+TokenVirtualizationEnabled              = 24
+TokenIntegrityLevel                     = 25
+TokenUIAccess                           = 26
+TokenMandatoryPolicy                    = 27
+TokenLogonSid                           = 28
+TokenIsAppContainer                     = 29
+TokenCapabilities                       = 30
+TokenAppContainerSid                    = 31
+TokenAppContainerNumber                 = 32
+TokenUserClaimAttributes                = 33
+TokenDeviceClaimAttributes              = 34
+TokenRestrictedUserClaimAttributes      = 35
+TokenRestrictedDeviceClaimAttributes    = 36
+TokenDeviceGroups                       = 37
+TokenRestrictedDeviceGroups             = 38
+TokenSecurityAttributes                 = 39
+TokenIsRestricted                       = 40
+MaxTokenInfoClass                       = 41
+
+# Token access rights
+TOKEN_ASSIGN_PRIMARY    = 0x0001
+TOKEN_DUPLICATE         = 0x0002
+TOKEN_IMPERSONATE       = 0x0004
+TOKEN_QUERY             = 0x0008
+TOKEN_QUERY_SOURCE      = 0x0010
+TOKEN_ADJUST_PRIVILEGES = 0x0020
+TOKEN_ADJUST_GROUPS     = 0x0040
+TOKEN_ADJUST_DEFAULT    = 0x0080
+TOKEN_ADJUST_SESSIONID  = 0x0100
+TOKEN_READ = (STANDARD_RIGHTS_READ | TOKEN_QUERY)
+TOKEN_ALL_ACCESS = (STANDARD_RIGHTS_REQUIRED | TOKEN_ASSIGN_PRIMARY |
+		TOKEN_DUPLICATE | TOKEN_IMPERSONATE | TOKEN_QUERY | TOKEN_QUERY_SOURCE |
+		TOKEN_ADJUST_PRIVILEGES | TOKEN_ADJUST_GROUPS | TOKEN_ADJUST_DEFAULT |
+		TOKEN_ADJUST_SESSIONID)
+
 # https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/23e75ca3-98fd-4396-84e5-86cd9d40d343
 OWNER_SECURITY_INFORMATION = 0x00000001 #The owner identifier of the object is being referenced.
 GROUP_SECURITY_INFORMATION = 0x00000002 #The primary group identifier of the object is being referenced.
@@ -397,11 +460,11 @@ def OpenServiceW(hSCManager, lpServiceName, dwDesiredAccess = SERVICE_ALL_ACCESS
 	return _OpenServiceW(hSCManager, lpServiceName, dwDesiredAccess)
 
 def CloseServiceHandle(hHandle):
-    _CloseServiceHandle = windll.advapi32.CloseServiceHandle
-    _CloseServiceHandle.argtypes = [HANDLE]
-    _CloseServiceHandle.restype  = bool
-    _CloseServiceHandle.errcheck = RaiseIfZero
-    _CloseServiceHandle(hHandle)
+	_CloseServiceHandle = windll.advapi32.CloseServiceHandle
+	_CloseServiceHandle.argtypes = [HANDLE]
+	_CloseServiceHandle.restype  = bool
+	_CloseServiceHandle.errcheck = RaiseIfZero
+	_CloseServiceHandle(hHandle)
 
 
 class SERVICE_STATUS(Structure):
@@ -518,11 +581,11 @@ def RegOpenKeyExW(regkey_handle, subkey_name = None, options = REG_OPTION_NON_VO
 
 # https://docs.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-regclosekey
 def RegCloseKey(hHandle):
-    _RegCloseKey = windll.advapi32.RegCloseKey
-    _RegCloseKey.argtypes = [HANDLE]
-    _RegCloseKey.restype  = bool
-    _RegCloseKey.errcheck = RaiseIfNotErrorSuccess
-    _RegCloseKey(hHandle)
+	_RegCloseKey = windll.advapi32.RegCloseKey
+	_RegCloseKey.argtypes = [HANDLE]
+	_RegCloseKey.restype  = bool
+	_RegCloseKey.errcheck = RaiseIfNotErrorSuccess
+	_RegCloseKey(hHandle)
 
 
 # https://docs.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-regenumkeyexw
@@ -626,3 +689,190 @@ def NetShareGetInfo(servername, sharename, level = 502):
 	#LocalFree(cstr_sid)
 
 	return str_sid
+
+
+# BOOL WINAPI OpenProcessToken(
+#   __in   HANDLE ProcessHandle,
+#   __in   DWORD DesiredAccess,
+#   __out  PHANDLE TokenHandle
+# );
+def OpenProcessToken(ProcessHandle, DesiredAccess = TOKEN_ALL_ACCESS):
+	_OpenProcessToken = windll.advapi32.OpenProcessToken
+	_OpenProcessToken.argtypes = [HANDLE, DWORD, PHANDLE]
+	_OpenProcessToken.restype  = bool
+	_OpenProcessToken.errcheck = RaiseIfZero
+
+	NewTokenHandle = HANDLE(INVALID_HANDLE_VALUE)
+	_OpenProcessToken(ProcessHandle, DesiredAccess, byref(NewTokenHandle))
+	return NewTokenHandle.value
+
+def _internal_GetTokenInformation(hTokenHandle, TokenInformationClass, TokenInformation):
+	_GetTokenInformation = windll.advapi32.GetTokenInformation
+	_GetTokenInformation.argtypes = [HANDLE, TOKEN_INFORMATION_CLASS, LPVOID, DWORD, PDWORD]
+	_GetTokenInformation.restype  = bool
+	_GetTokenInformation.errcheck = RaiseIfZero
+
+	ReturnLength = DWORD(0)
+	TokenInformationLength = SIZEOF(TokenInformation)
+	_GetTokenInformation(hTokenHandle, TokenInformationClass, byref(TokenInformation), TokenInformationLength, byref(ReturnLength))
+	if ReturnLength.value != TokenInformationLength:
+		raise ctypes.WinError(ERROR_INSUFFICIENT_BUFFER)
+	return TokenInformation
+
+# typedef enum tagTOKEN_TYPE {
+#   TokenPrimary         = 1,
+#   TokenImpersonation
+# } TOKEN_TYPE, *PTOKEN_TYPE;
+
+TOKEN_TYPE = ctypes.c_int
+PTOKEN_TYPE = POINTER(TOKEN_TYPE)
+
+
+# typedef struct _LUID {
+#   DWORD LowPart;
+#   LONG HighPart;
+# } LUID,
+#  *PLUID;
+class LUID(Structure):
+	_fields_ = [
+		("LowPart",     DWORD),
+		("HighPart",    LONG),
+	]
+
+PLUID = POINTER(LUID)
+
+# typedef enum _SECURITY_IMPERSONATION_LEVEL {
+#   SecurityAnonymous,
+#   SecurityIdentification,
+#   SecurityImpersonation,
+#   SecurityDelegation
+# } SECURITY_IMPERSONATION_LEVEL, *PSECURITY_IMPERSONATION_LEVEL;
+
+SecurityAnonymous       = 0
+SecurityIdentification  = 1
+SecurityImpersonation   = 2
+SecurityDelegation      = 3
+
+SECURITY_IMPERSONATION_LEVEL = ctypes.c_int
+PSECURITY_IMPERSONATION_LEVEL = POINTER(SECURITY_IMPERSONATION_LEVEL)
+
+
+# typedef struct _TOKEN_STATISTICS {
+#   LUID                         TokenId;
+#   LUID                         AuthenticationId;
+#   LARGE_INTEGER                ExpirationTime;
+#   TOKEN_TYPE                   TokenType;
+#   SECURITY_IMPERSONATION_LEVEL ImpersonationLevel;
+#   DWORD                        DynamicCharged;
+#   DWORD                        DynamicAvailable;
+#   DWORD                        GroupCount;
+#   DWORD                        PrivilegeCount;
+#   LUID                         ModifiedId;
+# } TOKEN_STATISTICS, *PTOKEN_STATISTICS;
+class TOKEN_STATISTICS(Structure):
+	_fields_ = [
+		("TokenId",             LUID),
+		("AuthenticationId",    LUID),
+		("ExpirationTime",      LONGLONG),  # LARGE_INTEGER
+		("TokenType",           TOKEN_TYPE),
+		("ImpersonationLevel",  SECURITY_IMPERSONATION_LEVEL),
+		("DynamicCharged",      DWORD),
+		("DynamicAvailable",    DWORD),
+		("GroupCount",          DWORD),
+		("PrivilegeCount",      DWORD),
+		("ModifiedId",          LUID),
+	]
+PTOKEN_STATISTICS = POINTER(TOKEN_STATISTICS)
+
+# BOOL WINAPI GetTokenInformation(
+#   __in       HANDLE TokenHandle,
+#   __in       TOKEN_INFORMATION_CLASS TokenInformationClass,
+#   __out_opt  LPVOID TokenInformation,
+#   __in       DWORD TokenInformationLength,
+#   __out      PDWORD ReturnLength
+# );
+def GetTokenInformation(hTokenHandle, TokenInformationClass):
+	if TokenInformationClass <= 0 or TokenInformationClass > MaxTokenInfoClass:
+		raise ValueError("Invalid value for TokenInformationClass (%i)" % TokenInformationClass)
+
+	# Token statistics.
+	if TokenInformationClass == TokenStatistics:
+		TokenInformation = TOKEN_STATISTICS()
+		_internal_GetTokenInformation(hTokenHandle, TokenInformationClass, TokenInformation)
+		return TokenInformation # TODO add a class wrapper?
+
+class LSA_LAST_INTER_LOGON_INFO(Structure):
+	_fields_ = [
+		("LastSuccessfulLogon", LONGLONG),
+		("LastFailedLogon", LONGLONG),
+		("FailedAttemptCountSinceLastSuccessfulLogon", ULONG),
+	]
+PLSA_LAST_INTER_LOGON_INFO = POINTER(LSA_LAST_INTER_LOGON_INFO)
+
+class SECURITY_LOGON_SESSION_DATA(Structure):
+	_fields_ = [
+		("Size", ULONG),
+		("LogonId", LUID),
+		("UserName", UNICODE_STRING),
+		("LogonDomain", UNICODE_STRING),
+		("AuthenticationPackage", UNICODE_STRING),
+		("Session", ULONG),
+		("Sid", PSID),
+		("LogonTime", LONGLONG),
+		("LogonServer", UNICODE_STRING),
+		("Upn", UNICODE_STRING),
+		("UserFlags", ULONG),
+		("LastLogonInfo", LSA_LAST_INTER_LOGON_INFO),
+		("LogonScript", UNICODE_STRING),
+		("ProfilePath", UNICODE_STRING),
+		("HomeDirectory", UNICODE_STRING),
+		("HomeDirectoryDrive", UNICODE_STRING),
+		("LogoffTime", LONGLONG),
+		("KickOffTime", LONGLONG),
+		("PasswordLastSet", LONGLONG),
+		("PasswordCanChange", LONGLONG),
+		("PasswordMustChange", LONGLONG),
+	]
+PSECURITY_LOGON_SESSION_DATA = POINTER(SECURITY_LOGON_SESSION_DATA)
+
+
+def LsaGetLogonSessionData(luid):
+	_LsaGetLogonSessionData = windll.Secur32.LsaGetLogonSessionData
+	_LsaGetLogonSessionData.argtypes = [PLUID, POINTER(PSECURITY_LOGON_SESSION_DATA)]
+	_LsaGetLogonSessionData.restype  = DWORD
+	#_LsaGetLogonSessionData.errcheck = RaiseIfNotErrorSuccess
+
+	secdata = PSECURITY_LOGON_SESSION_DATA()
+
+	x = _LsaGetLogonSessionData(luid, byref(secdata))
+	
+	res = {
+		'username' : secdata.contents.UserName.get_string(),
+		'domain' : secdata.contents.LogonDomain.get_string(),
+		'logoserver' : secdata.contents.LogonServer.get_string(),
+	}
+	return res
+
+# DWORD WINAPI GetCurrentProcessId(void);
+def GetCurrentProcessId():
+	_GetCurrentProcessId = windll.kernel32.GetCurrentProcessId
+	_GetCurrentProcessId.argtypes = []
+	_GetCurrentProcessId.restype  = DWORD
+	return _GetCurrentProcessId()
+
+# HANDLE WINAPI OpenProcess(
+#   __in  DWORD dwDesiredAccess,
+#   __in  BOOL bInheritHandle,
+#   __in  DWORD dwProcessId
+# );
+def OpenProcess(dwDesiredAccess, bInheritHandle, dwProcessId):
+	_OpenProcess = windll.kernel32.OpenProcess
+	_OpenProcess.argtypes = [DWORD, BOOL, DWORD]
+	_OpenProcess.restype  = HANDLE
+
+	if dwDesiredAccess is None:
+		dwDesiredAccess = 0x10000000
+	hProcess = _OpenProcess(dwDesiredAccess, bool(bInheritHandle), dwProcessId)
+	if hProcess == NULL:
+		raise ctypes.WinError()
+	return hProcess
