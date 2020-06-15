@@ -820,6 +820,7 @@ class SECURITY_LOGON_SESSION_DATA(Structure):
 		("Sid", PSID),
 		("LogonTime", LONGLONG),
 		("LogonServer", UNICODE_STRING),
+		("DnsDomainName", UNICODE_STRING),
 		("Upn", UNICODE_STRING),
 		("UserFlags", ULONG),
 		("LastLogonInfo", LSA_LAST_INTER_LOGON_INFO),
@@ -849,7 +850,8 @@ def LsaGetLogonSessionData(luid):
 	res = {
 		'username' : secdata.contents.UserName.get_string(),
 		'domain' : secdata.contents.LogonDomain.get_string(),
-		'logoserver' : secdata.contents.LogonServer.get_string(),
+		'logonserver' : secdata.contents.LogonServer.get_string(),
+		'dnsdomainname' : secdata.contents.DnsDomainName.get_string(),
 	}
 	return res
 
