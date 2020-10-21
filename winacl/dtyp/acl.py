@@ -35,7 +35,7 @@ class ACL:
 
 		self.AceCount = len(self.aces)
 		for ace in self.aces:
-			data_buff.write(ace.to_bytes())
+			ace.to_buffer(data_buff)
 
 		self.AclSize = 8 + data_buff.tell()
 
