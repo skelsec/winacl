@@ -101,6 +101,21 @@ class SID:
 				return ssdl_val_name_map[val]
 		return x
 
+	@staticmethod
+	def from_ssdl(ssdl, domain_sid = None):
+		if len(ssdl) > 2:
+			return SID.from_string(ssdl)
+		else:
+			if ssdl not in ssdl_name_val_map:
+				raise Exception('%s was not found in the well known sid definitions!' % ssdl)
+			account_sid_val = ssdl_name_val_map[ssdl]
+			if isinstance(account_sid_val, str):
+				return SID.from_string(account_sid_val)
+			else:
+				if domain_sid is None:
+					raise Exception('Missing domain_sid! Cant convert "%s" to a SID' % ssdl)
+				return SID.from_string(domain_sid + '-' +str(account_sid_val))
+
 # https://support.microsoft.com/en-us/help/243330/well-known-security-identifiers-in-windows-operating-systems
 # https://docs.microsoft.com/en-us/windows/win32/secauthz/well-known-sids
 
@@ -299,11 +314,11 @@ ssdl_name_val_map = {
 	"BA" : 	DOMAIN_ALIAS_RID.ADMINS.value, #Built-in administrators. The corresponding RID is DOMAIN_ALIAS_RID_ADMINS.
 	"BG" :  DOMAIN_ALIAS_RID.GUESTS.value, #Built-in guests. The corresponding RID is DOMAIN_ALIAS_RID_GUESTS.
 	"BO" : 	DOMAIN_ALIAS_RID.BACKUP_OPS.value, #Backup operators. The corresponding RID is DOMAIN_ALIAS_RID_BACKUP_OPS.
-	"BU" : 	DOMAIN_ALIAS_RID.USERS.value, #Built-in users. The corresponding RID is DOMAIN_ALIAS_RID_USERS.
+	"BU" : 	"S-1-5-32-545", #Built-in users. The corresponding RID is DOMAIN_ALIAS_RID_USERS.
 	"CA" :  DOMAIN_GROUP_RID.CERT_ADMINS.value, #Certificate publishers. The corresponding RID is DOMAIN_GROUP_RID_CERT_ADMINS.
 	"CD" :  DOMAIN_ALIAS_RID.CERTSVC_DCOM_ACCESS_GROUP.value, #Users who can connect to certification authorities using Distributed Component Object Model (DCOM). The corresponding RID is DOMAIN_ALIAS_RID_CERTSVC_DCOM_ACCESS_GROUP.
 	"CG" : 	"S-1-3", #Creator group. The corresponding RID is SECURITY_CREATOR_GROUP_RID.
-	"CO" :  "S-1-3", #Creator owner. The corresponding RID is SECURITY_CREATOR_OWNER_RID.
+	"CO" :  "S-1-3-0", #Creator owner. The corresponding RID is SECURITY_CREATOR_OWNER_RID.
 	"DA" : 	DOMAIN_GROUP_RID.ADMINS.value, #Domain administrators. The corresponding RID is DOMAIN_GROUP_RID_ADMINS.
 	"DC" : 	DOMAIN_GROUP_RID.COMPUTERS.value, #Domain computers. The corresponding RID is DOMAIN_GROUP_RID_COMPUTERS.
 	"DD" : 	DOMAIN_GROUP_RID.CONTROLLERS.value, #Domain controllers. The corresponding RID is DOMAIN_GROUP_RID_CONTROLLERS.

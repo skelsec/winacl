@@ -1,5 +1,13 @@
 from winacl.dtyp.ace import ACE
 import io
+import enum
+
+class ACL_REVISION(enum.Enum):
+	NO_DS = 0x02 # When set to 0x02, only AceTypes 0x00, 0x01, 0x02, 0x03, 0x11, 0x12, and 0x13 can be present in the ACL. An AceType of 0x11 is used for SACLs but not for DACLs. For more information about ACE types, see section 2.4.4.1.
+	DS = 0x04 #When set to 0x04, AceTypes 0x05, 0x06, 0x07, 0x08, and 0x11 are allowed. ACLs of revision 0x04 are applicable only to directory service objects. An AceType of 0x11 is used for SACLs but not for DACLs.
+
+ACL_REV_NODS_ALLOWED_TYPES = [0x00, 0x01, 0x02, 0x03, 0x11, 0x12, 0x13]
+ACL_REV_DS_ALLOWED_TYPES   = [0x05, 0x06, 0x07, 0x08, 0x11]
 
 class ACL:
 	def __init__(self, sd_object_type = None):
@@ -58,3 +66,21 @@ class ACL:
 		for ace in self.aces:
 			t += ace.to_ssdl(object_type)
 		return t
+
+	@staticmethod
+	def from_ssdl(ssdl_str, object_type = None, domain_sid = None):
+		acl = ACL()
+		acl.AclRevision = 0
+		acl.AceCount = 0
+		
+		for ace_ssdl in ssdl_str.split(')('):
+			ace = ACE.from_ssdl(ace_ssdl, object_type = object_type, domain_sid = domain_sid)
+			acl.aces.append(ace)
+			acl.AceCount += 1
+			if acl.AclRevision == 0:
+				if ace.AceType.value in ACL_REV_NODS_ALLOWED_TYPES:
+					acl.AclRevision = ACL_REVISION.NO_DS.value
+				else:
+					acl.AclRevision = ACL_REVISION.DS.value
+
+		return acl

@@ -28,9 +28,10 @@ class SE_SACL(enum.IntFlag):
 	SE_SELF_RELATIVE = 0x8000			#Indicates a self-relative security descriptor. If this flag is not set, the security descriptor is in absolute format. For more information, see Absolute and Self-Relative Security Descriptors.
 
 sddl_acl_control_flags = {
-	"P" : SE_SACL.SE_DACL_PROTECTED,
+	"P"  : SE_SACL.SE_DACL_PROTECTED,
 	"AR" : SE_SACL.SE_DACL_AUTO_INHERIT_REQ,
 	"AI" : SE_SACL.SE_DACL_AUTO_INHERITED,
+	#"SR" : SE_SACL.SE_SELF_RELATIVE,
 	#"NO_ACCESS_CONTROL" : 0
 }
 sddl_acl_control_flags_inv = {v: k for k, v in sddl_acl_control_flags.items()}
@@ -45,7 +46,7 @@ def sddl_acl_control(flags):
 #https://docs.microsoft.com/en-us/windows/desktop/api/winnt/ns-winnt-_security_descriptor
 class SECURITY_DESCRIPTOR:
 	def __init__(self, object_type = None):
-		self.Revision = None
+		self.Revision = 1
 		self.Sbz1 = None
 		self.Control = None
 		self.Owner = None
@@ -141,6 +142,45 @@ class SECURITY_DESCRIPTOR:
 		if self.Dacl is not None:
 			t+= 'D:' + sddl_acl_control(self.Control) + self.Dacl.to_ssdl(object_type)
 		return t
+
+	@staticmethod
+	def from_ssdl(ssdl:str, object_type = None, domain_sid = None):
+		sd = SECURITY_DESCRIPTOR(object_type = object_type)
+		params = ssdl.split(':')
+		np = [params[0]]
+		i = 1
+		while i < len(params):
+			np.append(params[i][:-1])
+			np.append(params[i][-1])
+			i += 1
+		params = np
+		sd.Control = 0
+		i = 0
+		while i < len(params):
+			if params[i].upper() == 'O':
+				sd.Owner = SID.from_ssdl(params[i+1], domain_sid = domain_sid)
+			elif params[i].upper() == 'G':
+				sd.Group = SID.from_ssdl(params[i+1], domain_sid = domain_sid)
+			elif params[i].upper() == 'D':
+				sd.Control |= SE_SACL.SE_DACL_PRESENT
+				flags, acl = params[i+1].split('(', 1)
+				m = flags.upper().find('P')
+				if m != -1:
+					sd.Control |= SE_SACL.SE_DACL_PROTECTED
+					flags = flags.replace('P', '')
+				for _ in range(len(flags)):
+					x = flags[:2]
+					sd.Control |= sddl_acl_control_flags[x]
+					flags = flags[2:]
+					if flags == '':
+						break
+				sd.Dacl = ACL.from_ssdl(acl, object_type=object_type, domain_sid = domain_sid)
+			elif params[i].upper() == 'S':
+				sd.Control |= SE_SACL.SE_SACL_PRESENT
+				sd.Sacl = SID.from_string(params[i+1])
+			
+			i += 2
+		return sd
 			
 	def __str__(self):
 		t = '=== SECURITY_DESCRIPTOR ==\r\n'
@@ -152,3 +192,12 @@ class SECURITY_DESCRIPTOR:
 		t+= 'Dacl : %s\r\n' % self.Dacl
 		return t
 	
+if __name__ == '__main__':
+	ds = 'S-1-5-21-3448413973-1765323015-1500960949'
+	x = 'O:BAG:DUD:AI(A;OICI;FA;;;DA)(A;OICIID;FA;;;SY)(A;OICIID;FA;;;BA)(A;OICIID;0x1200a9;;;BU)(A;CIID;0x100004;;;BU)(A;CIID;0x100002;;;BU)(A;OICIIOID;FA;;;CO)(A;OICIID;FA;;;DA)'
+	a = SECURITY_DESCRIPTOR.from_ssdl(x, domain_sid = ds)
+	print(x)
+	print(a.to_ssdl())
+	print(x == a.to_ssdl())
+
+	print(a)
