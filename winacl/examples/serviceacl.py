@@ -25,14 +25,14 @@ def main():
 	srv_ls = services_group_sub.add_parser('ls', help='listing services')
 	srv_ls.add_argument('--user', help = 'user to use in eff mode. If omitted, the current user will be used. Format: "domain\\username" for domain users or "username" for local users ')
 	srv_ls.add_argument('--sid', help = 'SID of the user to use in eff mode.')
-	srv_ls.add_argument('--ssdl', action = 'store_true', help = 'Security Descriptors will be listed in SSDL format')
+	srv_ls.add_argument('--sddl', action = 'store_true', help = 'Security Descriptors will be listed in SDDL format')
 	srv_ls.add_argument('--eff', action = 'store_true', help = 'Effective permissions will be printed insted of Security Descriptors')
 
 	srv_name = services_group_sub.add_parser('name', help='operate on specific service')
 	srv_name.add_argument('service_name', help = 'Name of the service to operate on (short)')
 	srv_name.add_argument('--user', help = 'user to use in eff mode. If omitted, the current user will be used. Format: "domain\\username" for domain users or "username" for local users ')
 	srv_name.add_argument('--sid', help = 'SID of the user to use in eff mode.')
-	srv_name.add_argument('--ssdl', action = 'store_true', help = 'Security Descriptors will be listed in SSDL format')
+	srv_name.add_argument('--sddl', action = 'store_true', help = 'Security Descriptors will be listed in SDDL format')
 	srv_name.add_argument('--eff', action = 'store_true', help = 'Effective permissions will be printed insted of Security Descriptors')
 
 
@@ -49,8 +49,8 @@ def main():
 					print(output)
 					continue
 			
-				if args.ssdl is True:
-					output += 'SSDL: %s' % srv_sd.to_ssdl()
+				if args.sddl is True:
+					output += 'SDDL: %s' % srv_sd.to_sddl()
 				elif args.eff is True:
 					if args.user is not None:
 						max_perm = get_maximum_permissions_for_user(srv_sd, args.user)
@@ -66,8 +66,8 @@ def main():
 		elif args.command == 'name':
 			srv_sd = get_service_sd(args.service_name)
 			output = ''
-			if args.ssdl is True:
-				print('SSDL: %s' % srv_sd.to_ssdl())
+			if args.sddl is True:
+				print('SDDL: %s' % srv_sd.to_sddl())
 			
 			elif args.eff is True:
 				if args.user is not None:

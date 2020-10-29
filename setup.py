@@ -19,7 +19,7 @@ setup(
 
 	# Application author details:
 	author="Tamas Jos",
-	author_email="skelsecprojects@gmail.com",
+	author_email="info@skelsecprojects.com",
 
 	# Packages
 	packages=find_packages(),

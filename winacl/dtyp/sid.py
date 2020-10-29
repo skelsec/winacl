@@ -92,28 +92,33 @@ class SID:
 			return str(self) == str(other)
 		return NotImplemented
 
-	def to_ssdl(self):
+	def to_sddl(self):
 		x = str(self)
-		for val in ssdl_val_name_map:
-			if isinstance(val, str) is True and val == x:
-				return ssdl_val_name_map[val]
-			elif isinstance(val, int) is True and self.SubAuthority[-1] == val:
-				return ssdl_val_name_map[val]
 		return x
+		# TODO: if we figure out how to properly convert the pretty names to the correct SIDs enable this part
+		#       problem is that pretty names sometimes belong to full SIDs sometimes to RIDs only and there is no way to tell if it belonged to
+		#       a domain-sid or a local sid
+		
+		#for val in sddl_val_name_map:
+		#	if isinstance(val, str) is True and val == x:
+		#		return sddl_val_name_map[val]
+		#	elif isinstance(val, int) is True and self.SubAuthority[-1] == val:
+		#		return sddl_val_name_map[val]
+		#return x
 
 	@staticmethod
-	def from_ssdl(ssdl, domain_sid = None):
-		if len(ssdl) > 2:
-			return SID.from_string(ssdl)
+	def from_sddl(sddl, domain_sid = None):
+		if len(sddl) > 2:
+			return SID.from_string(sddl)
 		else:
-			if ssdl not in ssdl_name_val_map:
-				raise Exception('%s was not found in the well known sid definitions!' % ssdl)
-			account_sid_val = ssdl_name_val_map[ssdl]
+			if sddl not in sddl_name_val_map:
+				raise Exception('%s was not found in the well known sid definitions!' % sddl)
+			account_sid_val = sddl_name_val_map[sddl]
 			if isinstance(account_sid_val, str):
 				return SID.from_string(account_sid_val)
 			else:
 				if domain_sid is None:
-					raise Exception('Missing domain_sid! Cant convert "%s" to a SID' % ssdl)
+					raise Exception('Missing domain_sid! Cant convert "%s" to a SID' % sddl)
 				return SID.from_string(domain_sid + '-' +str(account_sid_val))
 
 # https://support.microsoft.com/en-us/help/243330/well-known-security-identifiers-in-windows-operating-systems
@@ -307,7 +312,7 @@ SECURITY_SERVER_LOGON_RID = 9
 SECURITY_NETWORK_SERVICE_RID = 0x00000014
 
 # https://docs.microsoft.com/en-us/windows/win32/secauthz/sid-strings
-ssdl_name_val_map = {
+sddl_name_val_map = {
 	"AN" : "S-1-5-7", #Anonymous logon. The corresponding RID is SECURITY_ANONYMOUS_LOGON_RID.
 	"AO" : 	DOMAIN_ALIAS_RID.ACCOUNT_OPS.value, #Account operators. The corresponding RID is DOMAIN_ALIAS_RID_ACCOUNT_OPS.
 	"AU" : 	"S-1-5-11", #Authenticated users. The corresponding RID is SECURITY_AUTHENTICATED_USER_RID.
@@ -355,8 +360,8 @@ ssdl_name_val_map = {
 	"WD" : 	"S-1-1-0",
 }
 
-ssdl_val_name_map = {v: k for k, v in ssdl_name_val_map.items()}
+sddl_val_name_map = {v: k for k, v in sddl_name_val_map.items()}
 
 if __name__ == '__main__':
 	sid = SID.from_string('S-1-15-2-1')
-	print(sid.to_ssdl())
+	print(sid.to_sddl())
