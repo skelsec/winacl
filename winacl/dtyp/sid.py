@@ -92,14 +92,34 @@ class SID:
 			return str(self) == str(other)
 		return NotImplemented
 
-	def to_ssdl(self):
+	def to_sddl(self):
 		x = str(self)
-		for val in ssdl_val_name_map:
-			if isinstance(val, str) is True and val == x:
-				return ssdl_val_name_map[val]
-			elif isinstance(val, int) is True and self.SubAuthority[-1] == val:
-				return ssdl_val_name_map[val]
 		return x
+		# TODO: if we figure out how to properly convert the pretty names to the correct SIDs enable this part
+		#       problem is that pretty names sometimes belong to full SIDs sometimes to RIDs only and there is no way to tell if it belonged to
+		#       a domain-sid or a local sid
+		
+		#for val in sddl_val_name_map:
+		#	if isinstance(val, str) is True and val == x:
+		#		return sddl_val_name_map[val]
+		#	elif isinstance(val, int) is True and self.SubAuthority[-1] == val:
+		#		return sddl_val_name_map[val]
+		#return x
+
+	@staticmethod
+	def from_sddl(sddl, domain_sid = None):
+		if len(sddl) > 2:
+			return SID.from_string(sddl)
+		else:
+			if sddl not in sddl_name_val_map:
+				raise Exception('%s was not found in the well known sid definitions!' % sddl)
+			account_sid_val = sddl_name_val_map[sddl]
+			if isinstance(account_sid_val, str):
+				return SID.from_string(account_sid_val)
+			else:
+				if domain_sid is None:
+					raise Exception('Missing domain_sid! Cant convert "%s" to a SID' % sddl)
+				return SID.from_string(domain_sid + '-' +str(account_sid_val))
 
 # https://support.microsoft.com/en-us/help/243330/well-known-security-identifiers-in-windows-operating-systems
 # https://docs.microsoft.com/en-us/windows/win32/secauthz/well-known-sids
@@ -292,18 +312,18 @@ SECURITY_SERVER_LOGON_RID = 9
 SECURITY_NETWORK_SERVICE_RID = 0x00000014
 
 # https://docs.microsoft.com/en-us/windows/win32/secauthz/sid-strings
-ssdl_name_val_map = {
+sddl_name_val_map = {
 	"AN" : "S-1-5-7", #Anonymous logon. The corresponding RID is SECURITY_ANONYMOUS_LOGON_RID.
 	"AO" : 	DOMAIN_ALIAS_RID.ACCOUNT_OPS.value, #Account operators. The corresponding RID is DOMAIN_ALIAS_RID_ACCOUNT_OPS.
 	"AU" : 	"S-1-5-11", #Authenticated users. The corresponding RID is SECURITY_AUTHENTICATED_USER_RID.
 	"BA" : 	DOMAIN_ALIAS_RID.ADMINS.value, #Built-in administrators. The corresponding RID is DOMAIN_ALIAS_RID_ADMINS.
 	"BG" :  DOMAIN_ALIAS_RID.GUESTS.value, #Built-in guests. The corresponding RID is DOMAIN_ALIAS_RID_GUESTS.
 	"BO" : 	DOMAIN_ALIAS_RID.BACKUP_OPS.value, #Backup operators. The corresponding RID is DOMAIN_ALIAS_RID_BACKUP_OPS.
-	"BU" : 	DOMAIN_ALIAS_RID.USERS.value, #Built-in users. The corresponding RID is DOMAIN_ALIAS_RID_USERS.
+	"BU" : 	"S-1-5-32-545", #Built-in users. The corresponding RID is DOMAIN_ALIAS_RID_USERS.
 	"CA" :  DOMAIN_GROUP_RID.CERT_ADMINS.value, #Certificate publishers. The corresponding RID is DOMAIN_GROUP_RID_CERT_ADMINS.
 	"CD" :  DOMAIN_ALIAS_RID.CERTSVC_DCOM_ACCESS_GROUP.value, #Users who can connect to certification authorities using Distributed Component Object Model (DCOM). The corresponding RID is DOMAIN_ALIAS_RID_CERTSVC_DCOM_ACCESS_GROUP.
 	"CG" : 	"S-1-3", #Creator group. The corresponding RID is SECURITY_CREATOR_GROUP_RID.
-	"CO" :  "S-1-3", #Creator owner. The corresponding RID is SECURITY_CREATOR_OWNER_RID.
+	"CO" :  "S-1-3-0", #Creator owner. The corresponding RID is SECURITY_CREATOR_OWNER_RID.
 	"DA" : 	DOMAIN_GROUP_RID.ADMINS.value, #Domain administrators. The corresponding RID is DOMAIN_GROUP_RID_ADMINS.
 	"DC" : 	DOMAIN_GROUP_RID.COMPUTERS.value, #Domain computers. The corresponding RID is DOMAIN_GROUP_RID_COMPUTERS.
 	"DD" : 	DOMAIN_GROUP_RID.CONTROLLERS.value, #Domain controllers. The corresponding RID is DOMAIN_GROUP_RID_CONTROLLERS.
@@ -340,8 +360,8 @@ ssdl_name_val_map = {
 	"WD" : 	"S-1-1-0",
 }
 
-ssdl_val_name_map = {v: k for k, v in ssdl_name_val_map.items()}
+sddl_val_name_map = {v: k for k, v in sddl_name_val_map.items()}
 
 if __name__ == '__main__':
 	sid = SID.from_string('S-1-15-2-1')
-	print(sid.to_ssdl())
+	print(sid.to_sddl())

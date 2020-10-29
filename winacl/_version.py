@@ -1,8 +1,8 @@
 
 
-__version__ = "0.0.7"
+__version__ = "0.1.0"
 __banner__ = \
 """
 # winacl %s 
-# Author: Tamas Jos @skelsec (skelsecprojects@gmail.com)
+# Author: Tamas Jos @skelsec (info@skelsecprojects.com)
 """ % __version__

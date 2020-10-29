@@ -9,7 +9,7 @@
 
 import io
 import enum
-from winacl.dtyp.sid import SID
+from winacl.dtyp.sid import SID, sddl_name_val_map
 from winacl.dtyp.guid import GUID
 from winacl.functions.constants import SE_OBJECT_TYPE
 
@@ -75,7 +75,7 @@ class FILE_ACCESS_MASK(enum.IntFlag):
 	FILE_DELETE_CHILD = 64  #For a directory, the right to delete a directory and all the files it contains, including read-only files.
 	FILE_READ_ATTRIBUTES = 128 #The right to read file attributes.
 	FILE_WRITE_ATTRIBUTES = 256  #The right to write file attributes.
-	FILE_ALL_ACCESS = 1 | 2 | 4 | 8 | 16 | 32 | 64 | 128 | 256 #All possible access rights for a file.
+	FILE_ALL_ACCESS = 0x1f01ff #All possible access rights for a file.
 	#STANDARD_RIGHTS_READ #Includes READ_CONTROL, which is the right to read the information in the file or directory object's security descriptor. This does not include the information in the SACL.
 	#STANDARD_RIGHTS_WRITE #Same as STANDARD_RIGHTS_READ.
 	GENERIC_READ = 0x80000000
@@ -270,7 +270,7 @@ class AceFlags(enum.IntFlag):
 # https://docs.microsoft.com/en-us/windows/win32/secauthz/ace-strings
 # ace_type;ace_flags;rights;object_guid;inherit_object_guid;account_sid;(resource_attribute)
 
-SSDL_ACE_TYPE_MAPS = {
+SDDL_ACE_TYPE_MAPS = {
 	"A"  : ACEType.ACCESS_ALLOWED_ACE_TYPE,
 	"D"  : ACEType.ACCESS_DENIED_ACE_TYPE,
 	"OA" : ACEType.ACCESS_ALLOWED_OBJECT_ACE_TYPE,
@@ -287,69 +287,24 @@ SSDL_ACE_TYPE_MAPS = {
 	"XU" : ACEType.SYSTEM_AUDIT_CALLBACK_ACE_TYPE, #Windows Server 2008 R2, Windows 7, Windows Server 2008, Windows Vista and Windows Server 2003: Not available.
 	"ZA" : ACEType.ACCESS_ALLOWED_CALLBACK_ACE_TYPE, #Windows Server 2008 R2, Windows 7, Windows Server 2008, Windows Vista and Windows Server 2003: Not available.
 }
-SSDL_ACE_TYPE_MAPS_INV = {v: k for k, v in SSDL_ACE_TYPE_MAPS.items()}
-	
-SSDL_ACE_FLAGS_MAPS = {
-	"CI" : AceFlags.CONTAINER_INHERIT_ACE,
-	"OI" : AceFlags.OBJECT_INHERIT_ACE,
-	"NP" : AceFlags.NO_PROPAGATE_INHERIT_ACE,
+SDDL_ACE_TYPE_MAPS_INV = {v: k for k, v in SDDL_ACE_TYPE_MAPS.items()}
+
+# http://www.coopware.in2.info/_ntfsacl_ht.htm
+SDDL_ACE_FLAGS_MAPS = {
+	"OI" : AceFlags.OBJECT_INHERIT_ACE, #This folder and files
+	"CI" : AceFlags.CONTAINER_INHERIT_ACE, #This folder and subfolders
+	"NP" : AceFlags.NO_PROPAGATE_INHERIT_ACE, #Apply these permissions 
 	"IO" : AceFlags.INHERIT_ONLY_ACE,
-	"ID" : AceFlags.INHERITED_ACE,
+	"ID" : AceFlags.INHERITED_ACE, #inherited
 	"SA" : AceFlags.SUCCESSFUL_ACCESS_ACE_FLAG,
 	"FA" : AceFlags.FAILED_ACCESS_ACE_FLAG,
 }
-SSDL_ACE_FLAGS_MAPS_INV = {v: k for k, v in SSDL_ACE_FLAGS_MAPS.items()}
+SDDL_ACE_FLAGS_MAPS_INV = {v: k for k, v in SDDL_ACE_FLAGS_MAPS.items()}
 	
 
-ssdl_generic_rights_maps = {
-	"GA" :	ACCESS_MASK.GENERIC_ALL,
-	"GR" :	ACCESS_MASK.GENERIC_READ,
-	"GW" :	ACCESS_MASK.GENERIC_WRITE,
-	"GX" :	ACCESS_MASK.GENERIC_EXECUTE,
-}
-
-ssdl_standard_rights_maps = {
-	"RC" : STANDARD_ACCESS_MASK.READ_CONTROL,
-	"SD" : STANDARD_ACCESS_MASK.DELETE,
-	"WD" : STANDARD_ACCESS_MASK.WRITE_DACL,
-	"WO" : STANDARD_ACCESS_MASK.WRITE_OWNER,
-}
-
-ssdl_ds_rights_maps = {
-	"RP" : ADS_ACCESS_MASK.READ_PROP,
-	"WP" : ADS_ACCESS_MASK.WRITE_PROP,
-	"CC" : ADS_ACCESS_MASK.CREATE_CHILD,
-	"DC" : ADS_ACCESS_MASK.DELETE_CHILD,
-	"LC" : ADS_ACCESS_MASK.ACTRL_DS_LIST,
-	"SW" : ADS_ACCESS_MASK.SELF,
-	"LO" : ADS_ACCESS_MASK.LIST_OBJECT,
-	"DT" : ADS_ACCESS_MASK.DELETE_TREE,
-	"CR" : ADS_ACCESS_MASK.CONTROL_ACCESS,
-}
-
-ssdl_file_rights_maps = {
-	"FA" : FILE_ACCESS_MASK.FILE_ALL_ACCESS,
-	"FR" : FILE_ACCESS_MASK.SYNCHRONIZE|FILE_ACCESS_MASK.READ_CONTROL|FILE_ACCESS_MASK.FILE_READ_ATTRIBUTES|FILE_ACCESS_MASK.FILE_READ_EA|FILE_ACCESS_MASK.FILE_READ_DATA,
-	# TODO "FW" : STANDARD_ACCESS_MASK.WRITE,
-	# TODO "FX" : STANDARD_ACCESS_MASK.EXECUTE,
-}
-ssdl_file_rights_maps_inv = {v: k for k, v in ssdl_file_rights_maps.items()}
-
-# TODO implement registry and mandatory label
-#ssdl_registry_rights_maps = {
-#	"KA" 	SDDL_KEY_ALL 	KEY_ALL_ACCESS
-#	"KR" 	SDDL_KEY_READ 	KEY_READ
-#	"KW" 	SDDL_KEY_WRITE 	KEY_WRITE
-#	"KX" 	SDDL_KEY_EXECUTE 	KEY_EXECUTE
-#}
-#
-#ssdl_mandatory_label_rights_maps = {
-#"NR" 	SDDL_NO_READ_UP 	SYSTEM_MANDATORY_LABEL_NO_READ_UP
-#"NW" 	SDDL_NO_WRITE_UP 	SYSTEM_MANDATORY_LABEL_NO_WRITE_UP
-#"NX" 	SDDL_NO_EXECUTE_UP 	SYSTEM_MANDATORY_LABEL_NO_EXECUTE_UP
-#}
-
 def mask_to_str(mask, sd_object_type = None):
+	if sd_object_type is None:
+		return hex(mask)
 	if sd_object_type == SE_OBJECT_TYPE.SE_FILE_OBJECT:
 		return str(FILE_ACCESS_MASK(mask))
 	elif sd_object_type == SE_OBJECT_TYPE.SE_SERVICE:
@@ -359,25 +314,53 @@ def mask_to_str(mask, sd_object_type = None):
 	else:
 		return hex(mask)
 
-def aceflags_to_ssdl(flags):
+def aceflags_to_sddl(flags):
 	t = ''
-	for k in SSDL_ACE_FLAGS_MAPS_INV:
+	for k in SDDL_ACE_FLAGS_MAPS_INV:
 		if k in flags:
-			t += SSDL_ACE_FLAGS_MAPS_INV[k]
+			t += SDDL_ACE_FLAGS_MAPS_INV[k]
 	return t
 
+# https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/f4296d69-1c0f-491f-9587-a960b292d070
+well_known_accessmasks = {
+	"GR" : 0x80000000,
+	"GW" : 0x40000000,
+	"GX" : 0x20000000, #GE?
+	"GA" : 0x10000000,
+	"RC" : 0x00020000,
+	"SD" : 0x00010000, # Delete
+	"WD" : 0x00040000, # Modify Permissions
+	"WO" : 0x00080000, # Modify Owner
+	"RP" : 0x00000010, # Read All Properties 	
+	"WP" : 0x00000020, # Write All Properties
+	"CC" : 0x00000001, # Create All Child Objects
+	"DC" : 0x00000002, # Delete All Child Objects
+	"LC" : 0x00000004, # List Contents
+	"SW" : 0x00000008, # All Validated Writes
+	"LO" : 0x00000080, # List Object
+	"DT" : 0x00000040, # Delete Subtree
+	"CR" : 0x00000100, # All Extended Rights
+	"FA" : 0x001f01ff, # File all
+	"FX" : 0x001200A0, # File execute
+	"FW" : 0x00120116,
+	"FR" : 0x00120089,
+	"KA" : 0x000f003f, # KEY ALL ACCESS 	 	
+	"KR" : 0x00020019, # KEY READ
+	"KX" : 0x00020019, # KEY EXECUTE
+	"KW" : 0x00020006, # KEY WRITE
+}
+well_known_accessmasks_inv = {v: k for k, v in well_known_accessmasks.items()}
 def accessmask_to_sddl(mask, sd_object_type):
-	t = ''
-	if sd_object_type == SE_OBJECT_TYPE.SE_FILE_OBJECT:
-		if FILE_ACCESS_MASK.FILE_ALL_ACCESS in FILE_ACCESS_MASK(mask):
-			return ssdl_file_rights_maps_inv[FILE_ACCESS_MASK.FILE_ALL_ACCESS]
-		elif STANDARD_ACCESS_MASK.READ in STANDARD_ACCESS_MASK(mask):
-			return ssdl_file_rights_maps_inv[STANDARD_ACCESS_MASK.READ]
-		elif STANDARD_ACCESS_MASK.WRITE in STANDARD_ACCESS_MASK(mask):
-			return ssdl_file_rights_maps_inv[STANDARD_ACCESS_MASK.WRITE]
-		else:
-			return hex(mask) 
-	return hex(mask)
+	if mask in well_known_accessmasks_inv:
+		return well_known_accessmasks_inv[mask]
+	else:
+		return hex(mask) 
+
+def sddl_to_accessmask(mask_str):
+	if mask_str in well_known_accessmasks:
+		return well_known_accessmasks[mask_str]
+	else:
+		return int(mask_str, 16)
 
 class ACE:
 	def __init__(self):
@@ -404,18 +387,45 @@ class ACE:
 		buff.seek(0)
 		return buff.read()
 
-	def to_ssdl(self, sd_object_type = None):
+	def to_sddl(self, sd_object_type = None):
 		pass
 	
+	@staticmethod
+	def from_sddl(sddl:str, object_type = None, domain_sid = None):
+
+		if sddl.startswith('('):
+			sddl = sddl[1:]
+		if sddl.endswith(')'):
+			sddl = sddl[:-1]
+		
+		ace_type, ace_flags_str, rights, object_guid, inherit_object_guid, account_sid = sddl.split(';')
+
+		ace_type = SDDL_ACE_TYPE_MAPS[ace_type]
+		ace_flags = 0
+		for i in range(0, len(ace_flags_str), 2):
+			ace_flags |= SDDL_ACE_FLAGS_MAPS[ace_flags_str[i:i+2]]
+		
+		ace = acetype2ace[ace_type]()
+		ace.AceFlags = AceFlags(ace_flags)
+		ace.Mask = sddl_to_accessmask(rights)
+		ace.Flags = 0
+		ace.Sid = SID.from_sddl(account_sid, domain_sid = domain_sid)
+		ace.sd_object_type = object_type
+
+		if object_guid != '':
+			ace.Flags |= ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT
+			ace.ObjectType = GUID.from_string(object_guid)
+		if inherit_object_guid != '':
+			ace.Flags |= ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT
+			ace.InheritedObjectType = GUID.from_string(inherit_object_guid)
+
+		return ace
+
 	@staticmethod
 	def add_padding(x):
 		if (4 + len(x)) % 4 != 0:
 			x += b'\x00' * ((4 + len(x)) % 4)
 		return x
-	
-	@staticmethod
-	def from_ssdl(x):
-		pass
 
 class ACCESS_ALLOWED_ACE(ACE):
 	def __init__(self):
@@ -447,15 +457,15 @@ class ACCESS_ALLOWED_ACE(ACE):
 		buff.write(self.AceSize.to_bytes(2, 'little', signed = False))
 		buff.write(t)
 
-	def to_ssdl(self, sd_object_type = None):
+	def to_sddl(self, sd_object_type = None):
 		#ace_type;ace_flags;rights;object_guid;inherit_object_guid;account_sid;(resource_attribute)
 		return '(%s;%s;%s;%s;%s;%s)' % ( 
-			SSDL_ACE_TYPE_MAPS_INV[self.AceType], 
-			aceflags_to_ssdl(self.AceFlags), 
+			SDDL_ACE_TYPE_MAPS_INV[self.AceType], 
+			aceflags_to_sddl(self.AceFlags), 
 			accessmask_to_sddl(self.Mask, self.sd_object_type),
 			'',
 			'', 
-			self.Sid.to_ssdl()  
+			self.Sid.to_sddl()  
 		)
 
 	def __str__(self):
@@ -496,15 +506,15 @@ class ACCESS_DENIED_ACE(ACE):
 		buff.write(self.AceSize.to_bytes(2, 'little', signed = False))
 		buff.write(t)
 	
-	def to_ssdl(self, sd_object_type = None):
+	def to_sddl(self, sd_object_type = None):
 		#ace_type;ace_flags;rights;object_guid;inherit_object_guid;account_sid;(resource_attribute)
 		return '(%s;%s;%s;%s;%s;%s)' % ( 
-			SSDL_ACE_TYPE_MAPS_INV[self.AceType], 
-			aceflags_to_ssdl(self.AceFlags), 
+			SDDL_ACE_TYPE_MAPS_INV[self.AceType], 
+			aceflags_to_sddl(self.AceFlags), 
 			accessmask_to_sddl(self.Mask, self.sd_object_type),
 			'',
 			'', 
-			self.Sid.to_ssdl()  
+			self.Sid.to_sddl()  
 		)
 		
 class SYSTEM_AUDIT_ACE(ACE):
@@ -539,15 +549,15 @@ class SYSTEM_AUDIT_ACE(ACE):
 		buff.write(t)
 	
 
-	def to_ssdl(self, sd_object_type = None):
+	def to_sddl(self, sd_object_type = None):
 		#ace_type;ace_flags;rights;object_guid;inherit_object_guid;account_sid;(resource_attribute)
 		return '(%s;%s;%s;%s;%s;%s)' % ( 
-			SSDL_ACE_TYPE_MAPS_INV[self.AceType], 
-			aceflags_to_ssdl(self.AceFlags), 
+			SDDL_ACE_TYPE_MAPS_INV[self.AceType], 
+			aceflags_to_sddl(self.AceFlags), 
 			accessmask_to_sddl(self.Mask, self.sd_object_type),
 			'',
 			'', 
-			self.Sid.to_ssdl()  
+			self.Sid.to_sddl()  
 		)
 		
 class SYSTEM_ALARM_ACE(ACE):
@@ -581,19 +591,19 @@ class SYSTEM_ALARM_ACE(ACE):
 		buff.write(self.AceSize.to_bytes(2, 'little', signed = False))
 		buff.write(t)
 
-	def to_ssdl(self, sd_object_type = None):
+	def to_sddl(self, sd_object_type = None):
 		#ace_type;ace_flags;rights;object_guid;inherit_object_guid;account_sid;(resource_attribute)
 		return '(%s;%s;%s;%s;%s;%s)' % ( 
-			SSDL_ACE_TYPE_MAPS_INV[self.AceType], 
-			aceflags_to_ssdl(self.AceFlags), 
+			SDDL_ACE_TYPE_MAPS_INV[self.AceType], 
+			aceflags_to_sddl(self.AceFlags), 
 			accessmask_to_sddl(self.Mask, self.sd_object_type),
 			'',
 			'', 
-			self.Sid.to_ssdl()  
+			self.Sid.to_sddl()  
 		)
 		
 #https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/c79a383c-2b3f-4655-abe7-dcbb7ce0cfbe
-class ACCESS_ALLOWED_OBJECT_Flags(enum.IntFlag):
+class ACE_OBJECT_PRESENCE(enum.IntFlag):
 	NONE = 0x00000000 #Neither ObjectType nor InheritedObjectType are valid.
 	ACE_OBJECT_TYPE_PRESENT = 0x00000001 #ObjectType is valid.
 	ACE_INHERITED_OBJECT_TYPE_PRESENT = 0x00000002 #InheritedObjectType is valid. If this value is not specified, all types of child objects can inherit the ACE.
@@ -619,25 +629,25 @@ class ACCESS_ALLOWED_OBJECT_ACE:
 		ace.AceFlags = AceFlags(int.from_bytes(buff.read(1), 'little', signed = False))
 		ace.AceSize = int.from_bytes(buff.read(2), 'little', signed = False)
 		ace.Mask = int.from_bytes(buff.read(4), 'little', signed = False)
-		ace.Flags = ACCESS_ALLOWED_OBJECT_Flags(int.from_bytes(buff.read(4), 'little', signed = False))
-		if ace.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT:
+		ace.Flags = ACE_OBJECT_PRESENCE(int.from_bytes(buff.read(4), 'little', signed = False))
+		if ace.Flags & ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT:
 			ace.ObjectType = GUID.from_buffer(buff)
-		if ace.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT:
+		if ace.Flags & ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT:
 			ace.InheritedObjectType = GUID.from_buffer(buff)
 		ace.Sid = SID.from_buffer(buff)
 		return ace
 
 	def to_buffer(self, buff):
 		if self.ObjectType is not None:
-			self.Flags |= ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT
+			self.Flags |= ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT
 		if self.InheritedObjectType is not None:
-			self.Flags |= ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT
+			self.Flags |= ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT
 
 		t = self.Mask.to_bytes(4,'little', signed = False)
 		t += self.Flags.to_bytes(4, 'little', signed = False)
-		if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT:
+		if self.Flags & ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT:
 			t += self.ObjectType.to_bytes()
-		if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT:
+		if self.Flags & ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT:
 			t += self.InheritedObjectType.to_bytes()
 		
 		t += self.Sid.to_bytes()
@@ -648,15 +658,15 @@ class ACCESS_ALLOWED_OBJECT_ACE:
 		buff.write(self.AceSize.to_bytes(2, 'little', signed = False))
 		buff.write(t)
 
-	def to_ssdl(self, sd_object_type = None):
+	def to_sddl(self, sd_object_type = None):
 		#ace_type;ace_flags;rights;object_guid;inherit_object_guid;account_sid;(resource_attribute)
 		return '(%s;%s;%s;%s;%s;%s)' % ( 
-			SSDL_ACE_TYPE_MAPS_INV[self.AceType], 
-			aceflags_to_ssdl(self.AceFlags), 
+			SDDL_ACE_TYPE_MAPS_INV[self.AceType], 
+			aceflags_to_sddl(self.AceFlags), 
 			accessmask_to_sddl(self.Mask, self.sd_object_type),
-			self.ObjectType.to_bytes() if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT else '' ,
-			self.InheritedObjectType.to_bytes() if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT else '', 
-			self.Sid.to_ssdl()  
+			str(self.ObjectType) if self.Flags & ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT else '' ,
+			str(self.InheritedObjectType) if self.Flags & ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT else '', 
+			self.Sid.to_sddl()  
 		)
 		
 	def __str__(self):
@@ -689,25 +699,25 @@ class ACCESS_DENIED_OBJECT_ACE:
 		ace.AceFlags = AceFlags(int.from_bytes(buff.read(1), 'little', signed = False))
 		ace.AceSize = int.from_bytes(buff.read(2), 'little', signed = False)
 		ace.Mask = int.from_bytes(buff.read(4), 'little', signed = False)
-		ace.Flags = ACCESS_ALLOWED_OBJECT_Flags(int.from_bytes(buff.read(4), 'little', signed = False))
-		if ace.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT:
+		ace.Flags = ACE_OBJECT_PRESENCE(int.from_bytes(buff.read(4), 'little', signed = False))
+		if ace.Flags & ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT:
 			ace.ObjectType = GUID.from_buffer(buff)
-		if ace.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT:
+		if ace.Flags & ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT:
 			ace.InheritedObjectType = GUID.from_buffer(buff)
 		ace.Sid = SID.from_buffer(buff)
 		return ace
 	
 	def to_buffer(self, buff):
 		if self.ObjectType is not None:
-			self.Flags |= ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT
+			self.Flags |= ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT
 		if self.InheritedObjectType is not None:
-			self.Flags |= ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT
+			self.Flags |= ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT
 
 		t = self.Mask.to_bytes(4,'little', signed = False)
 		t += self.Flags.to_bytes(4, 'little', signed = False)
-		if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT:
+		if self.Flags & ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT:
 			t += self.ObjectType.to_bytes()
-		if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT:
+		if self.Flags & ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT:
 			t += self.InheritedObjectType.to_bytes()
 		
 		t += self.Sid.to_bytes()
@@ -718,15 +728,15 @@ class ACCESS_DENIED_OBJECT_ACE:
 		buff.write(self.AceSize.to_bytes(2, 'little', signed = False))
 		buff.write(t)
 
-	def to_ssdl(self, sd_object_type = None):
+	def to_sddl(self, sd_object_type = None):
 		#ace_type;ace_flags;rights;object_guid;inherit_object_guid;account_sid;(resource_attribute)
 		return '(%s;%s;%s;%s;%s;%s)' % ( 
-			SSDL_ACE_TYPE_MAPS_INV[self.AceType], 
-			aceflags_to_ssdl(self.AceFlags), 
+			SDDL_ACE_TYPE_MAPS_INV[self.AceType], 
+			aceflags_to_sddl(self.AceFlags), 
 			accessmask_to_sddl(self.Mask, self.sd_object_type),
-			self.ObjectType.to_bytes() if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT else '' ,
-			self.InheritedObjectType.to_bytes() if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT else '', 
-			self.Sid.to_ssdl()  
+			str(self.ObjectType) if self.Flags & ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT else '' ,
+			str(self.InheritedObjectType) if self.Flags & ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT else '', 
+			self.Sid.to_sddl()  
 		)
 		
 	def __str__(self):
@@ -761,10 +771,10 @@ class SYSTEM_AUDIT_OBJECT_ACE:
 		ace.AceFlags = AceFlags(int.from_bytes(buff.read(1), 'little', signed = False))
 		ace.AceSize = int.from_bytes(buff.read(2), 'little', signed = False)
 		ace.Mask = int.from_bytes(buff.read(4), 'little', signed = False)
-		ace.Flags = ACCESS_ALLOWED_OBJECT_Flags(int.from_bytes(buff.read(4), 'little', signed = False))
-		if ace.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT:
+		ace.Flags = ACE_OBJECT_PRESENCE(int.from_bytes(buff.read(4), 'little', signed = False))
+		if ace.Flags & ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT:
 			ace.ObjectType = GUID.from_buffer(buff)
-		if ace.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT:
+		if ace.Flags & ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT:
 			ace.InheritedObjectType = GUID.from_buffer(buff)
 		ace.Sid = SID.from_buffer(buff)
 		ace.ApplicationData = buff.read(ace.AceSize - (buff.tell() - start))
@@ -772,15 +782,15 @@ class SYSTEM_AUDIT_OBJECT_ACE:
 	
 	def to_buffer(self, buff):
 		if self.ObjectType is not None:
-			self.Flags |= ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT
+			self.Flags |= ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT
 		if self.InheritedObjectType is not None:
-			self.Flags |= ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT
+			self.Flags |= ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT
 
 		t = self.Mask.to_bytes(4,'little', signed = False)
 		t += self.Flags.to_bytes(4, 'little', signed = False)
-		if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT:
+		if self.Flags & ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT:
 			t += self.ObjectType.to_bytes()
-		if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT:
+		if self.Flags & ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT:
 			t += self.InheritedObjectType.to_bytes()
 		
 		t += self.Sid.to_bytes()
@@ -792,15 +802,15 @@ class SYSTEM_AUDIT_OBJECT_ACE:
 		buff.write(self.AceSize.to_bytes(2, 'little', signed = False))
 		buff.write(t)
 	
-	#def to_ssdl(self, sd_object_type = None):
+	#def to_sddl(self, sd_object_type = None):
 	#	#ace_type;ace_flags;rights;object_guid;inherit_object_guid;account_sid;(resource_attribute)
 	#	return '(%s;%s;%s;%s;%s;%s)' % ( 
-	#		SSDL_ACE_TYPE_MAPS_INV[self.Header.AceType], 
-	#		aceflags_to_ssdl(self.Header.AceFlags), 
+	#		SDDL_ACE_TYPE_MAPS_INV[self.Header.AceType], 
+	#		aceflags_to_sddl(self.Header.AceFlags), 
 	#		accessmask_to_sddl(self.Mask, self.sd_object_type),
-	#		self.ObjectType.to_bytes() if ace.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT else '' ,
-	#		self.InheritedObjectType.to_bytes() if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT else '', 
-	#		self.Sid.to_ssdl()  
+	#		self.ObjectType.to_bytes() if ace.Flags & ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT else '' ,
+	#		self.InheritedObjectType.to_bytes() if self.Flags & ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT else '', 
+	#		self.Sid.to_sddl()  
 	#	)
 		
 	def __str__(self):
@@ -849,9 +859,9 @@ class ACCESS_ALLOWED_CALLBACK_ACE:
 		
 	def __str__(self):
 		t = 'ACCESS_ALLOWED_CALLBACK_ACE'
-		t += 'Header: %s\r\n' % self.Header
-		t += 'Mask: %s\r\n' % self.Mask
+		t += 'Flags: %s\r\n' % str(self.AceFlags)
 		t += 'Sid: %s\r\n' % self.Sid
+		t += 'Mask: %s\r\n' % mask_to_str(self.Mask, self.sd_object_type)
 		t += 'ApplicationData: %s \r\n' % self.ApplicationData
 		
 		return t
@@ -893,9 +903,9 @@ class ACCESS_DENIED_CALLBACK_ACE:
 		
 	def __str__(self):
 		t = 'ACCESS_DENIED_CALLBACK_ACE'
-		t += 'Header: %s\r\n' % self.Header
-		t += 'Mask: %s\r\n' % self.Mask
+		t += 'Flags: %s\r\n' % str(self.AceFlags)
 		t += 'Sid: %s\r\n' % self.Sid
+		t += 'Mask: %s\r\n' % mask_to_str(self.Mask, self.sd_object_type)
 		t += 'ApplicationData: %s \r\n' % self.ApplicationData
 		
 		return t
@@ -923,10 +933,10 @@ class ACCESS_ALLOWED_CALLBACK_OBJECT_ACE:
 		ace.AceFlags = AceFlags(int.from_bytes(buff.read(1), 'little', signed = False))
 		ace.AceSize = int.from_bytes(buff.read(2), 'little', signed = False)
 		ace.Mask = int.from_bytes(buff.read(4), 'little', signed = False)
-		ace.Flags = ACCESS_ALLOWED_OBJECT_Flags(int.from_bytes(buff.read(4), 'little', signed = False))
-		if ace.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT:
+		ace.Flags = ACE_OBJECT_PRESENCE(int.from_bytes(buff.read(4), 'little', signed = False))
+		if ace.Flags & ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT:
 			ace.ObjectType = GUID.from_buffer(buff)
-		if ace.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT:
+		if ace.Flags & ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT:
 			ace.InheritedObjectType = GUID.from_buffer(buff)
 		ace.Sid = SID.from_buffer(buff)
 		ace.ApplicationData = buff.read(ace.AceSize - (buff.tell() - start))
@@ -934,15 +944,15 @@ class ACCESS_ALLOWED_CALLBACK_OBJECT_ACE:
 
 	def to_buffer(self, buff):
 		if self.ObjectType is not None:
-			self.Flags |= ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT
+			self.Flags |= ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT
 		if self.InheritedObjectType is not None:
-			self.Flags |= ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT
+			self.Flags |= ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT
 
 		t = self.Mask.to_bytes(4,'little', signed = False)
 		t += self.Flags.to_bytes(4, 'little', signed = False)
-		if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT:
+		if self.Flags & ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT:
 			t += self.ObjectType.to_bytes()
-		if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT:
+		if self.Flags & ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT:
 			t += self.InheritedObjectType.to_bytes()
 		
 		t += self.Sid.to_bytes()
@@ -985,10 +995,10 @@ class ACCESS_DENIED_CALLBACK_OBJECT_ACE:
 		ace.AceFlags = AceFlags(int.from_bytes(buff.read(1), 'little', signed = False))
 		ace.AceSize = int.from_bytes(buff.read(2), 'little', signed = False)
 		ace.Mask = int.from_bytes(buff.read(4), 'little', signed = False)
-		ace.Flags = ACCESS_ALLOWED_OBJECT_Flags(int.from_bytes(buff.read(4), 'little', signed = False))
-		if ace.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT:
+		ace.Flags = ACE_OBJECT_PRESENCE(int.from_bytes(buff.read(4), 'little', signed = False))
+		if ace.Flags & ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT:
 			ace.ObjectType = GUID.from_buffer(buff)
-		if ace.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT:
+		if ace.Flags & ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT:
 			ace.InheritedObjectType = GUID.from_buffer(buff)
 		ace.Sid = SID.from_buffer(buff)
 		ace.ApplicationData = buff.read(ace.AceSize - (buff.tell() - start))
@@ -996,15 +1006,15 @@ class ACCESS_DENIED_CALLBACK_OBJECT_ACE:
 	
 	def to_buffer(self, buff):
 		if self.ObjectType is not None:
-			self.Flags |= ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT
+			self.Flags |= ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT
 		if self.InheritedObjectType is not None:
-			self.Flags |= ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT
+			self.Flags |= ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT
 
 		t = self.Mask.to_bytes(4,'little', signed = False)
 		t += self.Flags.to_bytes(4, 'little', signed = False)
-		if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT:
+		if self.Flags & ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT:
 			t += self.ObjectType.to_bytes()
-		if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT:
+		if self.Flags & ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT:
 			t += self.InheritedObjectType.to_bytes()
 		
 		t += self.Sid.to_bytes()
@@ -1063,9 +1073,9 @@ class SYSTEM_AUDIT_CALLBACK_ACE:
 		
 	def __str__(self):
 		t = 'SYSTEM_AUDIT_CALLBACK_ACE'
-		t += 'Header: %s\r\n' % self.Header
-		t += 'Mask: %s\r\n' % self.Mask
+		t += 'Flags: %s\r\n' % str(self.AceFlags)
 		t += 'Sid: %s\r\n' % self.Sid
+		t += 'Mask: %s\r\n' % mask_to_str(self.Mask, self.sd_object_type)
 		t += 'ApplicationData: %s \r\n' % self.ApplicationData
 		
 		return t
@@ -1092,10 +1102,10 @@ class SYSTEM_AUDIT_CALLBACK_OBJECT_ACE:
 		ace.AceFlags = AceFlags(int.from_bytes(buff.read(1), 'little', signed = False))
 		ace.AceSize = int.from_bytes(buff.read(2), 'little', signed = False)
 		ace.Mask = int.from_bytes(buff.read(4), 'little', signed = False)
-		ace.Flags = ACCESS_ALLOWED_OBJECT_Flags(int.from_bytes(buff.read(4), 'little', signed = False))
-		if ace.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT:
+		ace.Flags = ACE_OBJECT_PRESENCE(int.from_bytes(buff.read(4), 'little', signed = False))
+		if ace.Flags & ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT:
 			ace.ObjectType = GUID.from_buffer(buff)
-		if ace.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT:
+		if ace.Flags & ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT:
 			ace.InheritedObjectType = GUID.from_buffer(buff)
 		ace.Sid = SID.from_buffer(buff)
 		ace.ApplicationData = buff.read(ace.AceSize - (buff.tell() - start))
@@ -1103,15 +1113,15 @@ class SYSTEM_AUDIT_CALLBACK_OBJECT_ACE:
 	
 	def to_buffer(self, buff):
 		if self.ObjectType is not None:
-			self.Flags |= ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT
+			self.Flags |= ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT
 		if self.InheritedObjectType is not None:
-			self.Flags |= ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT
+			self.Flags |= ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT
 
 		t = self.Mask.to_bytes(4,'little', signed = False)
 		t += self.Flags.to_bytes(4, 'little', signed = False)
-		if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_OBJECT_TYPE_PRESENT:
+		if self.Flags & ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT:
 			t += self.ObjectType.to_bytes()
-		if self.Flags & ACCESS_ALLOWED_OBJECT_Flags.ACE_INHERITED_OBJECT_TYPE_PRESENT:
+		if self.Flags & ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT:
 			t += self.InheritedObjectType.to_bytes()
 		
 		t += self.Sid.to_bytes()
@@ -1200,9 +1210,9 @@ class SYSTEM_RESOURCE_ATTRIBUTE_ACE:
 		
 	def __str__(self):
 		t = 'SYSTEM_RESOURCE_ATTRIBUTE_ACE'
-		t += 'Header: %s\r\n' % self.Header
-		t += 'Mask: %s\r\n' % self.Mask
+		t += 'Flags: %s\r\n' % str(self.AceFlags)
 		t += 'Sid: %s\r\n' % self.Sid
+		t += 'Mask: %s\r\n' % mask_to_str(self.Mask, self.sd_object_type)
 		t += 'AttributeData: %s \r\n' % self.AttributeData
 		
 		return t
@@ -1237,6 +1247,14 @@ class SYSTEM_SCOPED_POLICY_ID_ACE:
 		buff.write(self.AceFlags.to_bytes(1, 'little', signed = False))
 		buff.write(self.AceSize.to_bytes(2, 'little', signed = False))
 		buff.write(t)
+
+	def __str__(self):
+		t = 'SYSTEM_SCOPED_POLICY_ID_ACE'
+		t += 'Flags: %s\r\n' % str(self.AceFlags)
+		t += 'Sid: %s\r\n' % self.Sid
+		t += 'Mask: %s\r\n' % mask_to_str(self.Mask, self.sd_object_type)
+
+		return t
 		
 acetype2ace = {
 	ACEType.ACCESS_ALLOWED_ACE_TYPE : ACCESS_ALLOWED_ACE,
