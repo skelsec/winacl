@@ -516,6 +516,13 @@ class ACCESS_DENIED_ACE(ACE):
 			'', 
 			self.Sid.to_sddl()  
 		)
+	
+	def __str__(self):
+		t = 'ACCESS_DENIED_ACE\r\n'
+		t += 'Flags: %s\r\n' % str(self.AceFlags)
+		t += 'Sid: %s\r\n' % self.Sid
+		t += 'Mask: %s\r\n' % mask_to_str(self.Mask, self.sd_object_type)		
+		return t
 		
 class SYSTEM_AUDIT_ACE(ACE):
 	def __init__(self):
@@ -559,6 +566,13 @@ class SYSTEM_AUDIT_ACE(ACE):
 			'', 
 			self.Sid.to_sddl()  
 		)
+	
+	def __str__(self):
+		t = 'SYSTEM_AUDIT_ACE\r\n'
+		t += 'Flags: %s\r\n' % str(self.AceFlags)
+		t += 'Sid: %s\r\n' % self.Sid
+		t += 'Mask: %s\r\n' % mask_to_str(self.Mask, self.sd_object_type)		
+		return t
 		
 class SYSTEM_ALARM_ACE(ACE):
 	def __init__(self):
@@ -601,6 +615,13 @@ class SYSTEM_ALARM_ACE(ACE):
 			'', 
 			self.Sid.to_sddl()  
 		)
+	
+	def __str__(self):
+		t = 'SYSTEM_ALARM_ACE\r\n'
+		t += 'Flags: %s\r\n' % str(self.AceFlags)
+		t += 'Sid: %s\r\n' % self.Sid
+		t += 'Mask: %s\r\n' % mask_to_str(self.Mask, self.sd_object_type)		
+		return t
 		
 #https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/c79a383c-2b3f-4655-abe7-dcbb7ce0cfbe
 class ACE_OBJECT_PRESENCE(enum.IntFlag):
@@ -639,8 +660,12 @@ class ACCESS_ALLOWED_OBJECT_ACE:
 
 	def to_buffer(self, buff):
 		if self.ObjectType is not None:
+			if self.Flags is None:
+				self.Flags = 0
 			self.Flags |= ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT
 		if self.InheritedObjectType is not None:
+			if self.Flags is None:
+				self.Flags = 0
 			self.Flags |= ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT
 
 		t = self.Mask.to_bytes(4,'little', signed = False)
@@ -670,7 +695,10 @@ class ACCESS_ALLOWED_OBJECT_ACE:
 		)
 		
 	def __str__(self):
-		t = 'ACCESS_ALLOWED_OBJECT_ACE'
+		t = 'ACCESS_ALLOWED_OBJECT_ACE\r\n'
+		t += 'Flags: %s\r\n' % str(self.AceFlags)
+		t += 'Sid: %s\r\n' % self.Sid
+		t += 'Mask: %s\r\n' % mask_to_str(self.Mask, self.sd_object_type)
 		t += 'ObjectType: %s\r\n' % self.ObjectType
 		t += 'InheritedObjectType: %s\r\n' % self.InheritedObjectType
 		t += 'ObjectFlags: %s\r\n' % self.Flags
@@ -709,8 +737,12 @@ class ACCESS_DENIED_OBJECT_ACE:
 	
 	def to_buffer(self, buff):
 		if self.ObjectType is not None:
+			if self.Flags is None:
+				self.Flags = 0
 			self.Flags |= ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT
 		if self.InheritedObjectType is not None:
+			if self.Flags is None:
+				self.Flags = 0
 			self.Flags |= ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT
 
 		t = self.Mask.to_bytes(4,'little', signed = False)
@@ -740,7 +772,10 @@ class ACCESS_DENIED_OBJECT_ACE:
 		)
 		
 	def __str__(self):
-		t = 'ACCESS_DENIED_OBJECT_ACE'
+		t = 'ACCESS_DENIED_OBJECT_ACE\r\n'
+		t += 'Flags: %s\r\n' % str(self.AceFlags)
+		t += 'Sid: %s\r\n' % self.Sid
+		t += 'Mask: %s\r\n' % mask_to_str(self.Mask, self.sd_object_type)
 		t += 'ObjectType: %s\r\n' % self.ObjectType
 		t += 'InheritedObjectType: %s\r\n' % self.InheritedObjectType
 		t += 'ObjectFlags: %s\r\n' % self.Flags
@@ -782,8 +817,12 @@ class SYSTEM_AUDIT_OBJECT_ACE:
 	
 	def to_buffer(self, buff):
 		if self.ObjectType is not None:
+			if self.Flags is None:
+				self.Flags = 0
 			self.Flags |= ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT
 		if self.InheritedObjectType is not None:
+			if self.Flags is None:
+				self.Flags = 0
 			self.Flags |= ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT
 
 		t = self.Mask.to_bytes(4,'little', signed = False)
@@ -814,7 +853,10 @@ class SYSTEM_AUDIT_OBJECT_ACE:
 	#	)
 		
 	def __str__(self):
-		t = 'SYSTEM_AUDIT_OBJECT_ACE'
+		t = 'SYSTEM_AUDIT_OBJECT_ACE\r\n'
+		t += 'Flags: %s\r\n' % str(self.AceFlags)
+		t += 'Sid: %s\r\n' % self.Sid
+		t += 'Mask: %s\r\n' % mask_to_str(self.Mask, self.sd_object_type)
 		t += 'ObjectType: %s\r\n' % self.ObjectType
 		t += 'InheritedObjectType: %s\r\n' % self.InheritedObjectType
 		t += 'ObjectFlags: %s\r\n' % self.Flags
@@ -858,7 +900,10 @@ class ACCESS_ALLOWED_CALLBACK_ACE:
 		buff.write(t)
 		
 	def __str__(self):
-		t = 'ACCESS_ALLOWED_CALLBACK_ACE'
+		t = 'ACCESS_ALLOWED_CALLBACK_ACE\r\n'
+		t += 'Flags: %s\r\n' % str(self.AceFlags)
+		t += 'Sid: %s\r\n' % self.Sid
+		t += 'Mask: %s\r\n' % mask_to_str(self.Mask, self.sd_object_type)
 		t += 'Flags: %s\r\n' % str(self.AceFlags)
 		t += 'Sid: %s\r\n' % self.Sid
 		t += 'Mask: %s\r\n' % mask_to_str(self.Mask, self.sd_object_type)
@@ -902,7 +947,7 @@ class ACCESS_DENIED_CALLBACK_ACE:
 		buff.write(t)
 		
 	def __str__(self):
-		t = 'ACCESS_DENIED_CALLBACK_ACE'
+		t = 'ACCESS_DENIED_CALLBACK_ACE\r\n'
 		t += 'Flags: %s\r\n' % str(self.AceFlags)
 		t += 'Sid: %s\r\n' % self.Sid
 		t += 'Mask: %s\r\n' % mask_to_str(self.Mask, self.sd_object_type)
@@ -944,8 +989,12 @@ class ACCESS_ALLOWED_CALLBACK_OBJECT_ACE:
 
 	def to_buffer(self, buff):
 		if self.ObjectType is not None:
+			if self.Flags is None:
+				self.Flags = 0
 			self.Flags |= ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT
 		if self.InheritedObjectType is not None:
+			if self.Flags is None:
+				self.Flags = 0
 			self.Flags |= ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT
 
 		t = self.Mask.to_bytes(4,'little', signed = False)
@@ -965,7 +1014,10 @@ class ACCESS_ALLOWED_CALLBACK_OBJECT_ACE:
 		buff.write(t)
 		
 	def __str__(self):
-		t = 'ACCESS_ALLOWED_CALLBACK_OBJECT_ACE'
+		t = 'ACCESS_ALLOWED_CALLBACK_OBJECT_ACE\r\n'
+		t += 'Flags: %s\r\n' % str(self.AceFlags)
+		t += 'Sid: %s\r\n' % self.Sid
+		t += 'Mask: %s\r\n' % mask_to_str(self.Mask, self.sd_object_type)
 		t += 'ObjectType: %s\r\n' % self.ObjectType
 		t += 'InheritedObjectType: %s\r\n' % self.InheritedObjectType
 		t += 'ObjectFlags: %s\r\n' % self.Flags
@@ -1006,8 +1058,12 @@ class ACCESS_DENIED_CALLBACK_OBJECT_ACE:
 	
 	def to_buffer(self, buff):
 		if self.ObjectType is not None:
+			if self.Flags is None:
+				self.Flags = 0
 			self.Flags |= ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT
 		if self.InheritedObjectType is not None:
+			if self.Flags is None:
+				self.Flags = 0
 			self.Flags |= ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT
 
 		t = self.Mask.to_bytes(4,'little', signed = False)
@@ -1027,7 +1083,10 @@ class ACCESS_DENIED_CALLBACK_OBJECT_ACE:
 		buff.write(t)
 		
 	def __str__(self):
-		t = 'ACCESS_DENIED_CALLBACK_OBJECT_ACE'
+		t = 'ACCESS_DENIED_CALLBACK_OBJECT_ACE\r\n'
+		t += 'Flags: %s\r\n' % str(self.AceFlags)
+		t += 'Sid: %s\r\n' % self.Sid
+		t += 'Mask: %s\r\n' % mask_to_str(self.Mask, self.sd_object_type)
 		t += 'ObjectType: %s\r\n' % self.ObjectType
 		t += 'InheritedObjectType: %s\r\n' % self.InheritedObjectType
 		t += 'ObjectFlags: %s\r\n' % self.Flags
@@ -1072,7 +1131,7 @@ class SYSTEM_AUDIT_CALLBACK_ACE:
 		
 		
 	def __str__(self):
-		t = 'SYSTEM_AUDIT_CALLBACK_ACE'
+		t = 'SYSTEM_AUDIT_CALLBACK_ACE\r\n'
 		t += 'Flags: %s\r\n' % str(self.AceFlags)
 		t += 'Sid: %s\r\n' % self.Sid
 		t += 'Mask: %s\r\n' % mask_to_str(self.Mask, self.sd_object_type)
@@ -1113,8 +1172,12 @@ class SYSTEM_AUDIT_CALLBACK_OBJECT_ACE:
 	
 	def to_buffer(self, buff):
 		if self.ObjectType is not None:
+			if self.Flags is None:
+				self.Flags = 0
 			self.Flags |= ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT
 		if self.InheritedObjectType is not None:
+			if self.Flags is None:
+				self.Flags = 0
 			self.Flags |= ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT
 
 		t = self.Mask.to_bytes(4,'little', signed = False)
@@ -1134,7 +1197,7 @@ class SYSTEM_AUDIT_CALLBACK_OBJECT_ACE:
 		buff.write(t)
 		
 	def __str__(self):
-		t = 'SYSTEM_AUDIT_CALLBACK_OBJECT_ACE'
+		t = 'SYSTEM_AUDIT_CALLBACK_OBJECT_ACE\r\n'
 		t += 'ObjectType: %s\r\n' % self.ObjectType
 		t += 'InheritedObjectType: %s\r\n' % self.InheritedObjectType
 		t += 'ObjectFlags: %s\r\n' % self.Flags
@@ -1209,7 +1272,7 @@ class SYSTEM_RESOURCE_ATTRIBUTE_ACE:
 		buff.write(t)
 		
 	def __str__(self):
-		t = 'SYSTEM_RESOURCE_ATTRIBUTE_ACE'
+		t = 'SYSTEM_RESOURCE_ATTRIBUTE_ACE\r\n'
 		t += 'Flags: %s\r\n' % str(self.AceFlags)
 		t += 'Sid: %s\r\n' % self.Sid
 		t += 'Mask: %s\r\n' % mask_to_str(self.Mask, self.sd_object_type)
@@ -1249,7 +1312,7 @@ class SYSTEM_SCOPED_POLICY_ID_ACE:
 		buff.write(t)
 
 	def __str__(self):
-		t = 'SYSTEM_SCOPED_POLICY_ID_ACE'
+		t = 'SYSTEM_SCOPED_POLICY_ID_ACE\r\n'
 		t += 'Flags: %s\r\n' % str(self.AceFlags)
 		t += 'Sid: %s\r\n' % self.Sid
 		t += 'Mask: %s\r\n' % mask_to_str(self.Mask, self.sd_object_type)
