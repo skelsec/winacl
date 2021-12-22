@@ -33,32 +33,30 @@ class STANDARD_ACCESS_MASK(enum.IntFlag):
 	READ = 0x00020000
 	WRITE = 0x00020000
 	REQUIRED = 0x00010000 | 0x00020000 | 0x00040000 | 0x00080000
-	
-#https://docs.microsoft.com/en-us/previous-versions/tn-archive/ff405675(v%3dmsdn.10)
+
+# https://docs.microsoft.com/en-us/dotnet/api/system.directoryservices.activedirectoryrights?view=dotnet-plat-ext-6.0
 class ADS_ACCESS_MASK(enum.IntFlag):
-	CREATE_CHILD   = 0x00000001 #The ObjectType GUID identifies a type of child object. The ACE controls the trustee's right to create this type of child object.
-	DELETE_CHILD   = 0x00000002 #The ObjectType GUID identifies a type of child object. The ACE controls the trustee's right to delete this type of child object.
-	
-	ACTRL_DS_LIST  = 0x00000004 #Enumerate a DS object.
-	SELF           = 0x00000008 #The ObjectType GUID identifies a validated write.
-	READ_PROP      = 0x00000010 #The ObjectType GUID identifies a property set or property of the object. The ACE controls the trustee's right to read the property or property set.
-	WRITE_PROP     = 0x00000020 #The ObjectType GUID identifies a property set or property of the object. The ACE controls the trustee's right to write the property or property set.
-	
-	DELETE_TREE    = 0x00000040
-	LIST_OBJECT    = 0x00000080
-	CONTROL_ACCESS = 0x00000100 #The ObjectType GUID identifies an extended access right.
-	GENERIC_READ = 0x80000000
-	GENERIC_WRITE = 0x4000000
-	GENERIC_EXECUTE = 0x20000000
-	GENERIC_ALL = 0x10000000
+	CREATE_CHILD    = 0x00000001 # The ObjectType GUID identifies a type of child object. The ACE controls the trustee's right to create this type of child object.
+	DELETE_CHILD    = 0x00000002 # The ObjectType GUID identifies a type of child object. The ACE controls the trustee's right to delete this type of child object.
+	ACTRL_DS_LIST   = 0x00000004 # Enumerate a DS object.
+	SELF            = 0x00000008 # The ObjectType GUID identifies a validated write.
+	READ_PROP       = 0x00000010 # The ObjectType GUID identifies a property set or property of the object. The ACE controls the trustee's right to read the property or property set.
+	WRITE_PROP      = 0x00000020 # The ObjectType GUID identifies a property set or property of the object. The ACE controls the trustee's right to write the property or property set.
+	DELETE_TREE     = 0x00000040 # The right to delete all children of this object, regardless of the permissions of the children.
+	LIST_OBJECT     = 0x00000080 # The right to list a particular object. For more information about this right, see the see the Controlling Object Visibility article.
+	CONTROL_ACCESS  = 0x00000100 # The ObjectType GUID identifies an extended access right.
+	DELETE          = 0x00010000 # The right to delete the object.
+	READ_CONTROL    = 0x00020000 # The right to read data from the security descriptor of the object, not including the data in the SACL.
+	GENERIC_EXECUTE = 0x00020004 # The right to read permissions on, and list the contents of, a container object.
+	GENERIC_WRITE   = 0x00020028 # The right to read permissions on this object, write all the properties on this object, and perform all validated writes to this object.
+	GENERIC_READ    = 0x00020094 # The right to read permissions on this object, read all the properties on this object, list this object name when the parent container is listed, and list the contents of this object if it is a container.
+	WRITE_DACL      = 0x00040000 # The right to modify the DACL in the object security descriptor.
+	WRITE_OWNER     = 0x00080000 # The right to assume ownership of the object. The user must be an object trustee. The user cannot transfer the ownership to other users.
+	GENERIC_ALL     = 0x000f01ff # The right to create or delete children, delete a subtree, read and write properties, examine children and the object itself, add and remove the object from the directory, and read or write with an extended right.
+	SYNCHRONIZE     = 0x00100000 # The right to use the object for synchronization. This right enables a thread to wait until that object is in the signaled state.
+	ACCESS_SYSTEM_SECURITY = 0x01000000 # The right to get or set the SACL in the object security descriptor.
 	MAXIMUM_ALLOWED = 0x02000000
-	ACCESS_SYSTEM_SECURITY = 0x01000000
-	SYNCHRONIZE = 0x00100000
-	WRITE_OWNER = 0x00080000
-	WRITE_DACL = 0x00040000
-	READ_CONTROL = 0x00020000
-	DELETE = 0x00010000
-	
+
 class FILE_ACCESS_MASK(enum.IntFlag):
 	#includes directory access as well
 	FILE_READ_DATA = 1 #For a file object, the right to read the corresponding file data. For a directory object, the right to read the corresponding directory data.
