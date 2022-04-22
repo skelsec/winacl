@@ -257,19 +257,25 @@ def BuildTrusteeWithSidW(sid):
 #  LPWSTR *StringSid
 #);
 
-def ConvertSidToStringSidW(sid):
+def ConvertSidToStringSidW(sid, is_raw_ptr = False):
 	_ConvertSidToStringSidW = windll.advapi32.ConvertSidToStringSidW
 	_ConvertSidToStringSidW.argtypes = [PVOID, PVOID] #[HANDLE, SE_OBJECT_TYPE, DWORD, PSID, PSID, PACL, PACL, PSECURITY_DESCRIPTOR]
 	_ConvertSidToStringSidW.restype  = DWORD
 	_ConvertSidToStringSidW.errcheck = RaiseIfZero
 
-	sid_data = sid.to_bytes()
-	csid = ctypes.create_string_buffer(sid_data, len(sid_data))
-	pstr = ctypes.create_unicode_buffer(1) #size is irrelevant here
-
-	cstr_sid = ctypes.pointer(pstr)
+	if is_raw_ptr is False:
+		sid_data = sid.to_bytes()
+		csid = ctypes.create_string_buffer(sid_data, len(sid_data))
+		pstr = ctypes.create_unicode_buffer(1) #size is irrelevant here
+		cstr_sid = ctypes.pointer(pstr)
 	
-	_ConvertSidToStringSidW(byref(csid), byref(cstr_sid))
+		_ConvertSidToStringSidW(byref(csid), byref(cstr_sid))
+	else:
+		pstr = ctypes.create_unicode_buffer(1) #size is irrelevant here
+		cstr_sid = ctypes.pointer(pstr)
+	
+		_ConvertSidToStringSidW(sid, byref(cstr_sid))
+
 	str_sid = ctypes.wstring_at(cstr_sid)
 	LocalFree(cstr_sid)
 
@@ -836,7 +842,6 @@ class SECURITY_LOGON_SESSION_DATA(Structure):
 	]
 PSECURITY_LOGON_SESSION_DATA = POINTER(SECURITY_LOGON_SESSION_DATA)
 
-
 def LsaGetLogonSessionData(luid):
 	_LsaGetLogonSessionData = windll.Secur32.LsaGetLogonSessionData
 	_LsaGetLogonSessionData.argtypes = [PLUID, POINTER(PSECURITY_LOGON_SESSION_DATA)]
@@ -846,9 +851,9 @@ def LsaGetLogonSessionData(luid):
 	secdata = PSECURITY_LOGON_SESSION_DATA()
 
 	x = _LsaGetLogonSessionData(luid, byref(secdata))
-	
 	res = {
 		'username' : secdata.contents.UserName.get_string(),
+		'usersid' : ConvertSidToStringSidW(secdata.contents.Sid, True),
 		'domain' : secdata.contents.LogonDomain.get_string(),
 		'logonserver' : secdata.contents.LogonServer.get_string(),
 		'dnsdomainname' : secdata.contents.DnsDomainName.get_string(),
