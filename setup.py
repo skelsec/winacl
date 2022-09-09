@@ -43,9 +43,9 @@ setup(
 		"License :: OSI Approved :: MIT License",
 		"Operating System :: OS Independent",
 	),
-	#install_requires=[
-	#	'asn1crypto>=1.3.0',
-	#],
+	install_requires=[
+		'cryptography>=38.0.1',
+	],
 
 	#entry_points={
 	#	'console_scripts': [
