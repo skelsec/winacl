@@ -1,8 +1,3 @@
-#
-# Author:
-#  Tamas Jos (@skelsec)
-#
-
 # TODO 
 # implement https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/21f2b5f0-7376-45bb-bc31-eaa60841dbe9
 # implement https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/9020a075-c1af-4b03-930b-ba785743bcab

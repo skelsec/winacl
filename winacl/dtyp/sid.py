@@ -1,8 +1,3 @@
-#
-# Author:
-#  Tamas Jos (@skelsec)
-#
-
 import io
 import enum
 from typing import List

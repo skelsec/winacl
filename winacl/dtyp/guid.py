@@ -1,8 +1,3 @@
-#
-# Author:
-#  Tamas Jos (@skelsec)
-#
-
 import io
 
 # https://docs.microsoft.com/en-us/previous-versions/aa373931(v%3Dvs.80)
