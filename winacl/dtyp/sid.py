@@ -5,19 +5,20 @@
 
 import io
 import enum
+from typing import List
 
 # https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/f992ad60-0fe4-4b87-9fed-beb478836861
 class SID:
 	def __init__(self):
-		self.Revision = None
-		self.SubAuthorityCount = None
-		self.IdentifierAuthority = None
-		self.SubAuthority = []
+		self.Revision:int = None
+		self.SubAuthorityCount:int = None
+		self.IdentifierAuthority:int = None
+		self.SubAuthority:List[int] = []
 
-		self.is_wellknown = None
-		self.wellknow_name = None
+		self.is_wellknown:bool = None
+		self.wellknow_name:str = None
 		
-		self.wildcard = None #this is for well-known-sid lookups
+		self.wildcard:bool = None #this is for well-known-sid lookups
 	
 	@staticmethod
 	def wellknown_sid_lookup(x):

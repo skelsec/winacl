@@ -2,6 +2,7 @@ from winacl.dtyp.ace import ACE
 import io
 import enum
 import hashlib
+from typing import List
 
 class ACL_REVISION(enum.Enum):
 	NO_DS = 0x02 # When set to 0x02, only AceTypes 0x00, 0x01, 0x02, 0x03, 0x11, 0x12, and 0x13 can be present in the ACL. An AceType of 0x11 is used for SACLs but not for DACLs. For more information about ACE types, see section 2.4.4.1.
@@ -12,13 +13,13 @@ ACL_REV_DS_ALLOWED_TYPES   = [0x05, 0x06, 0x07, 0x08, 0x11]
 
 class ACL:
 	def __init__(self, sd_object_type = None):
-		self.AclRevision = None
-		self.Sbz1 = 0
-		self.AclSize = None
-		self.AceCount = None
-		self.Sbz2 = 0
+		self.AclRevision:int = None
+		self.Sbz1:int = 0
+		self.AclSize:int = None
+		self.AceCount:int = None
+		self.Sbz2:int = 0
 		
-		self.aces = []
+		self.aces:List[ACE] = []
 		self.sd_object_type = sd_object_type
 		
 	@staticmethod

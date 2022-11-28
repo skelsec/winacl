@@ -48,13 +48,13 @@ def sddl_acl_control(flags):
 # https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/7d4dac05-9cef-4563-a058-f108abecce1d
 class SECURITY_DESCRIPTOR:
 	def __init__(self, object_type = None):
-		self.Revision = 1
-		self.Sbz1 = 0 #default value but SDDL doesnt store this info and in some cases this field is nonzero
-		self.Control = None
-		self.Owner = None
-		self.Group = None
-		self.Sacl = None
-		self.Dacl = None
+		self.Revision:int = 1
+		self.Sbz1:int = 0 #default value but SDDL doesnt store this info and in some cases this field is nonzero
+		self.Control:SE_SACL = None
+		self.Owner:SID = None
+		self.Group:SID = None
+		self.Sacl:ACL = None
+		self.Dacl:ACL = None
 
 		self.object_type = object_type #high level info, not part of the struct
 	

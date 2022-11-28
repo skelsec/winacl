@@ -9,6 +9,7 @@
 
 import io
 import enum
+from typing import List, Dict
 from winacl.dtyp.sid import SID, sddl_name_val_map
 from winacl.dtyp.guid import GUID
 from winacl.functions.constants import SE_OBJECT_TYPE
@@ -1636,7 +1637,7 @@ MoreGUID_Exchange = {
 	"D34E9D76-5269-4ED9-B91A-2F2A4B20A5CF": "ms-Exch-Web-Services-Virtual-Directory"
 }
 
-def ObjectType_to_str(ObjectType):
+def ObjectType_to_str(ObjectType:str):
 	if ObjectType in ExtendedRightsGUID:
 		return ExtendedRightsGUID[ObjectType]
 	elif ObjectType in PropertySets:
@@ -1796,7 +1797,7 @@ class ACE:
 	def to_buffer(self, buff):
 		pass
 
-	def to_bytes(self):
+	def to_bytes(self) -> bytes:
 		buff = io.BytesIO()
 		self.to_buffer(buff)
 		buff.seek(0)
@@ -2734,7 +2735,7 @@ class SYSTEM_SCOPED_POLICY_ID_ACE:
 
 		return t
 		
-acetype2ace = {
+acetype2ace:Dict[ACEType, ACE] = { #TODO: type hint not correct
 	ACEType.ACCESS_ALLOWED_ACE_TYPE : ACCESS_ALLOWED_ACE,
 	ACEType.ACCESS_DENIED_ACE_TYPE : ACCESS_DENIED_ACE,
 	ACEType.SYSTEM_AUDIT_ACE_TYPE : SYSTEM_AUDIT_ACE,
@@ -2763,9 +2764,9 @@ ACEType.SYSTEM_ALARM_CALLBACK_OBJECT_ACE_TYPE : ,# reserved
 # https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/628ebb1d-c509-4ea0-a10f-77ef97ca4586
 class ACEHeader:
 	def __init__(self):
-		self.AceType = None
-		self.AceFlags = None
-		self.AceSize = None
+		self.AceType:ACEType = None
+		self.AceFlags:AceFlags = None
+		self.AceSize:int = None
 
 	def to_buffer(self, buff):
 		buff.write(self.AceType.value.to_bytes(1, 'little', signed = False))

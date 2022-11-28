@@ -8,10 +8,10 @@ import io
 # https://docs.microsoft.com/en-us/previous-versions/aa373931(v%3Dvs.80)
 class GUID:
 	def __init__(self):
-		self.Data1 = None
-		self.Data2 = None
-		self.Data3 = None
-		self.Data4 = None
+		self.Data1:bytes = None
+		self.Data2:bytes = None
+		self.Data3:bytes = None
+		self.Data4:bytes = None
 	
 	def to_bytes(self):
 		return self.Data1[::-1] + self.Data2[::-1] + self.Data3[::-1] + self.Data4
