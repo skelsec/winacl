@@ -137,8 +137,11 @@ class SECURITY_DESCRIPTOR:
 		return sd
 	
 	def to_sddl(self, object_type = None):
-		t =  'O:' + self.Owner.to_sddl()
-		t += 'G:' + self.Group.to_sddl()
+		t=''
+		if self.Owner is not None:
+        		t +=  'O:' + self.Owner.to_sddl()
+    		if self.Group is not None:
+        		t += 'G:' + self.Group.to_sddl()
 		if self.Sacl is not None:
 			t+= 'S:' + sddl_acl_control(self.Control) + self.Sacl.to_sddl(object_type)
 		if self.Dacl is not None:
