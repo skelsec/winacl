@@ -57,15 +57,15 @@ class FILE_ACCESS_MASK(enum.IntFlag):
 	#includes directory access as well
 	FILE_READ_DATA = 1 #For a file object, the right to read the corresponding file data. For a directory object, the right to read the corresponding directory data.
 	FILE_LIST_DIRECTORY = 1 #	For a directory, the right to list the contents of the directory.
-	FILE_ADD_FILE = 2 #For a directory, the right to create a file in the directory.
+	#FILE_ADD_FILE = 2 #For a directory, the right to create a file in the directory.
 	FILE_WRITE_DATA = 2#For a file object, the right to write data to the file. For a directory object, the right to create a file in the directory (FILE_ADD_FILE).
-	FILE_ADD_SUBDIRECTORY = 4 #For a directory, the right to create a subdirectory.
+	#FILE_ADD_SUBDIRECTORY = 4 #For a directory, the right to create a subdirectory.
 	FILE_APPEND_DATA = 4 #	For a file object, the right to append data to the file. (For local files, write operations will not overwrite existing data if this flag is specified without FILE_WRITE_DATA.) For a directory object, the right to create a subdirectory (FILE_ADD_SUBDIRECTORY).
-	FILE_CREATE_PIPE_INSTANCE = 4 #	For a named pipe, the right to create a pipe.
+	#FILE_CREATE_PIPE_INSTANCE = 4 #	For a named pipe, the right to create a pipe.
 	FILE_READ_EA = 8 #The right to read extended file attributes.
 	FILE_WRITE_EA = 16  #The right to write extended file attributes.
 	FILE_EXECUTE = 32  #	For a native code file, the right to execute the file. This access right given to scripts may cause the script to be executable, depending on the script interpreter.
-	FILE_TRAVERSE = 32  #For a directory, the right to traverse the directory. By default, users are assigned the BYPASS_TRAVERSE_CHECKING privilege, which ignores the FILE_TRAVERSE access right. See the remarks in File Security and Access Rights for more information.
+	#FILE_TRAVERSE = 32  #For a directory, the right to traverse the directory. By default, users are assigned the BYPASS_TRAVERSE_CHECKING privilege, which ignores the FILE_TRAVERSE access right. See the remarks in File Security and Access Rights for more information.
 	FILE_DELETE_CHILD = 64  #For a directory, the right to delete a directory and all the files it contains, including read-only files.
 	FILE_READ_ATTRIBUTES = 128 #The right to read file attributes.
 	FILE_WRITE_ATTRIBUTES = 256  #The right to write file attributes.

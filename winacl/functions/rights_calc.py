@@ -1,4 +1,6 @@
 from winacl.dtyp.ace import ACEType, AceFlags
+from winacl.dtyp.sid import SID
+from typing import List
 
 SYNCHRONIZE = 0x00100000
 WRITE_OWNER = 0x00080000
@@ -8,8 +10,9 @@ DELETE = 0x00010000
 MAXIMUM_ALLOWED = 0x02000000
 
 def group_lookup(sid, sid_groups):
-	if sid in sid_groups:
-		return True
+	for csid in sid_groups:
+		if sid == csid:
+			return True
 	return False
 
 def sid_in_dacl(sid, dacl):
@@ -19,7 +22,7 @@ def sid_in_dacl(sid, dacl):
 	return False
 
 # https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/4f1bbcbb-814a-4c70-a11e-2a5b8779a6f9
-def EvaluateSidAgainstDescriptor(sd, sid, req_access, sid_groups = []):
+def EvaluateSidAgainstDescriptor(sd, sid:str or SID, req_access:int, sid_groups:List[str] = []):
 	# sid_groups is a list of SIDs where the user's SID is member of
 	dacl = sd.Dacl
 	sacl = sd.Sacl
@@ -68,7 +71,7 @@ def EvaluateSidAgainstDescriptor(sd, sid, req_access, sid_groups = []):
 	if group_lookup(sd.Owner, sid_groups) is True:
 		if sid_in_dacl(sd.Owner, dacl) is False:
 			remainging_access &= ~READ_CONTROL
-			remainging_access &= ~WRITE_DAC
+			remainging_access &= ~WRITE_DACL
 			granted_access |= WRITE_OWNER 
 			granted_access |= READ_CONTROL
 	
