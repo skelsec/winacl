@@ -86,6 +86,8 @@ class SID:
 	def __eq__(self, other):
 		if isinstance(other, SID):
 			return str(self) == str(other)
+		elif isinstance(other, str):
+			return str(self) == other
 		return NotImplemented
 
 	def to_sddl(self):
