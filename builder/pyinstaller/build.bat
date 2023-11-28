@@ -17,8 +17,8 @@ GOTO BUILD
 cd %repo%\..\
 pip install .
 cd %repo%\examples
-pyinstaller -F userinfo.py %hiddenimports%
-pyinstaller -F serviceacl.py %hiddenimports%
+pyinstaller -F userinfo.py -n userinfo %hiddenimports%
+pyinstaller -F serviceacl.py -n serviceacl %hiddenimports%
 cd %repo%\examples\dist & copy *.exe %root%
 GOTO :CLEANUP
 
