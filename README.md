@@ -2,7 +2,8 @@
 
 ## :triangular_flag_on_post: Sponsors
 
-If you like this project, consider sponsoring it on GitHub! [Sponsors](https://github.com/sponsors/skelsec/)
+If you like this project, consider purchasing licenses of [OctoPwn](https://octopwn.com/), our full pentesting suite that runs in your browser!  
+For notifications on new builds/releases and other info, hop on to our [Discord](https://discord.gg/PM8utcNxMS)
 
 # winacl
 Platform independent library for interfacing windows security descriptors
