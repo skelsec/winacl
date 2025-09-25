@@ -2252,16 +2252,16 @@ class SYSTEM_AUDIT_OBJECT_ACE:
 		buff.write(self.AceSize.to_bytes(2, 'little', signed = False))
 		buff.write(t)
 	
-	#def to_sddl(self, sd_object_type = None):
-	#	#ace_type;ace_flags;rights;object_guid;inherit_object_guid;account_sid;(resource_attribute)
-	#	return '(%s;%s;%s;%s;%s;%s)' % ( 
-	#		SDDL_ACE_TYPE_MAPS_INV[self.Header.AceType], 
-	#		aceflags_to_sddl(self.Header.AceFlags), 
-	#		accessmask_to_sddl(self.Mask, self.sd_object_type),
-	#		self.ObjectType.to_bytes() if ace.Flags & ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT else '' ,
-	#		self.InheritedObjectType.to_bytes() if self.Flags & ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT else '', 
-	#		self.Sid.to_sddl()  
-	#	)
+	def to_sddl(self, sd_object_type = None):
+		#ace_type;ace_flags;rights;object_guid;inherit_object_guid;account_sid;(resource_attribute)
+		return '(%s;%s;%s;%s;%s;%s)' % ( 
+			SDDL_ACE_TYPE_MAPS_INV[self.Header.AceType], 
+			aceflags_to_sddl(self.Header.AceFlags), 
+			accessmask_to_sddl(self.Mask, self.sd_object_type),
+			self.ObjectType.to_bytes() if ace.Flags & ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT else '' ,
+			self.InheritedObjectType.to_bytes() if self.Flags & ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT else '', 
+			self.Sid.to_sddl()  
+		)
 		
 	def __str__(self):
 		t = 'SYSTEM_AUDIT_OBJECT_ACE\r\n'
