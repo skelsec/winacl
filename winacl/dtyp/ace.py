@@ -2262,6 +2262,42 @@ class SYSTEM_AUDIT_OBJECT_ACE:
 	#		self.InheritedObjectType.to_bytes() if self.Flags & ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT else '', 
 	#		self.Sid.to_sddl()  
 	#	)
+
+	def to_sddl(self, sd_object_type=None):
+		"""
+		Convert SYSTEM_AUDIT_OBJECT_ACE to SDDL format.
+		
+		Args:
+			sd_object_type: Security descriptor object type for mask conversion
+			
+		Returns:
+			str: SDDL string in format (ace_type;ace_flags;rights;object_guid;inherit_object_guid;account_sid)
+		"""
+		obj_type = sd_object_type or self.sd_object_type
+		
+		# ACE type (AU for System Audit)
+		ace_type = SDDL_ACE_TYPE_MAPS_INV.get(self.AceType, 'AU')
+		
+		# ACE flags
+		ace_flags = aceflags_to_sddl(self.AceFlags) if self.AceFlags else ''
+		
+		# Access mask (rights)
+		rights = accessmask_to_sddl(self.Mask, obj_type) if self.Mask else ''
+		
+		# Object GUID
+		object_guid = ''
+		if self.Flags and (self.Flags & ACE_OBJECT_PRESENCE.ACE_OBJECT_TYPE_PRESENT) and self.ObjectType:
+			object_guid = str(self.ObjectType)
+		
+		# Inherited object GUID
+		inherited_guid = ''
+		if self.Flags and (self.Flags & ACE_OBJECT_PRESENCE.ACE_INHERITED_OBJECT_TYPE_PRESENT) and self.InheritedObjectType:
+			inherited_guid = str(self.InheritedObjectType)
+		
+		# Account SID
+		sid = self.Sid.to_sddl() if self.Sid else ''
+		
+		return f'({ace_type};{ace_flags};{rights};{object_guid};{inherited_guid};{sid})'
 		
 	def __str__(self):
 		t = 'SYSTEM_AUDIT_OBJECT_ACE\r\n'
